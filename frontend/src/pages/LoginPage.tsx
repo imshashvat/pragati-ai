@@ -107,7 +107,7 @@ export default function LoginPage() {
           {/* Mobile-only wordmark */}
           <div className="lg:hidden mb-8 text-center">
             <div className="text-base font-semibold" style={{ color: '#102A43' }}>PRAGATI-AI</div>
-            <div className="text-[12px] mt-0.5" style={{ color: '#697077' }}>MoSPI · PS-26103</div>
+            <div className="text-[12px] mt-0.5" style={{ color: '#697077' }}>PAIMANA Platform</div>
           </div>
 
           <h2 className="text-[22px] font-semibold mb-1" style={{ color: '#161616', letterSpacing: '-0.015em' }}>

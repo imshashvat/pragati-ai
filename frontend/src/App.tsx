@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 
 import Layout             from './components/Layout'
 import LoginPage          from './pages/LoginPage'
+import LandingPage        from './pages/LandingPage'
 import DashboardPage      from './pages/DashboardPage'
 import ProjectsPage       from './pages/ProjectsPage'
 import ProjectDetailPage  from './pages/ProjectDetailPage'
@@ -38,12 +39,13 @@ function AppRoutes() {
     <Routes>
       {/* Public */}
       <Route
+        path="/"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}
+      />
+      <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
-
-      {/* Root redirect */}
-      <Route index element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
 
       {/* Protected shell */}
       <Route

@@ -32,7 +32,7 @@ export default function NotFoundPage() {
             PRAGATI-AI
           </div>
           <div className="text-[11px] mt-0.5" style={{ color: '#697077' }}>
-            MoSPI · PS-26103
+            PAIMANA Platform
           </div>
         </div>
 
