@@ -123,7 +123,7 @@ export default function LandingPage() {
         <div className="lp-container lp-util-inner">
           <div className="lp-util-left">
             <img
-              src="/images/mospi-logo.png"
+              src="/images/data-for-dev.png"
               alt="MoSPI"
               className="lp-util-emblem"
               onError={e => (e.currentTarget.style.display = 'none')}
@@ -195,27 +195,42 @@ export default function LandingPage() {
       {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="lp-hero" aria-labelledby="hero-heading">
 
-        {/* Split photography panels — user's actual images */}
+        {/* 4-panel photography grid — all 4 actual project images */}
         <div className="lp-hero-photos" aria-hidden="true">
           <div className="lp-hero-photo">
             <img
-              src="/images/hero-energy.jpg"
-              alt="Indian energy infrastructure — wind turbines, solar panels and power generation"
+              src="/images/banner1-1razA4xw.png"
+              alt="Energy infrastructure — wind turbines, solar panels and power generation"
               loading="eager"
-              fetchPriority="high"
             />
             <div className="lp-photo-tag">Energy &amp; Power</div>
           </div>
           <div className="lp-hero-photo">
             <img
-              src="/images/hero-airport.jpg"
-              alt="Indira Gandhi International Airport — civil aviation infrastructure"
+              src="/images/banner2-AZrNp54C.png"
+              alt="India's national infrastructure — space, ports and roads"
               loading="eager"
-              fetchPriority="high"
+            />
+            <div className="lp-photo-tag">National Infrastructure</div>
+          </div>
+          <div className="lp-hero-photo">
+            <img
+              src="/images/banner3-BkFJVKqW.png"
+              alt="Delhi Airport — civil aviation infrastructure"
+              loading="eager"
             />
             <div className="lp-photo-tag">Civil Aviation</div>
           </div>
+          <div className="lp-hero-photo">
+            <img
+              src="/images/banner4-BesNf3Ns.png"
+              alt="Urban roads and Delhi Metro — transportation infrastructure"
+              loading="eager"
+            />
+            <div className="lp-photo-tag">Roads &amp; Urban</div>
+          </div>
         </div>
+
 
         {/* Structured text overlay */}
         <div className="lp-hero-overlay">
@@ -249,7 +264,7 @@ export default function LandingPage() {
               <div className="lp-hero-attribution">
                 <span className="lp-attribution-label">Powered by</span>
                 <img
-                  src="/images/paimana-logo.png"
+                  src="/images/logo-paimana.png"
                   alt="PAIMANA"
                   className="lp-paimana"
                   onError={e => {
@@ -309,7 +324,7 @@ export default function LandingPage() {
           <div className="lp-about-tiles">
             <div className="lp-tile lp-tile-feature">
               <img
-                src="/images/icon-construction.png"
+                src="/images/new-project.png"
                 alt="Infrastructure monitoring"
                 className="lp-tile-icon-img"
                 onError={e => (e.currentTarget.style.display = 'none')}
@@ -476,7 +491,7 @@ export default function LandingPage() {
 
             <div className="lp-partner">
               <img
-                src="/images/mospi-logo.png"
+                src="/images/data-for-dev.png"
                 alt="Ministry of Statistics and Programme Implementation"
                 className="lp-partner-img"
                 onError={e => (e.currentTarget.style.display = 'none')}
@@ -488,7 +503,7 @@ export default function LandingPage() {
 
             <div className="lp-partner">
               <img
-                src="/images/paimana-logo.png"
+                src="/images/logo-paimana.png"
                 alt="PAIMANA"
                 className="lp-partner-img lp-partner-wide"
                 onError={e => (e.currentTarget.style.display = 'none')}
@@ -500,7 +515,7 @@ export default function LandingPage() {
 
             <div className="lp-partner">
               <img
-                src="/images/icon-construction.png"
+                src="/images/banner4-BesNf3Ns.png"
                 alt="Infrastructure"
                 className="lp-partner-img"
                 onError={e => (e.currentTarget.style.display = 'none')}
