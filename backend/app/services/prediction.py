@@ -5,27 +5,23 @@ ML model loader and inference service — CatBoost Schedule Delay Model.
 
 Model 3 details (from training output):
   - Type: CatBoostRegressor
-  - Target: future_schedule_extension_days, clipped [0, 365], log1p transformed
-  - Decoding: actual_days = expm1(prediction), clipped to [0, 365]
-  - Risk score: delay_risk = actual_days / 365  →  [0.0, 1.0]
+  - Target: future_schedule_extension_days, signed_log transformed
+  - Decoding: signed_log inverse = sign(x) * (exp(|x|) - 1), clip to [0, 365]
+  - Risk score: delay_risk = actual_days / TARGET_UPPER  →  [0.0, 1.0]
   - 61 features, 12 categorical columns
 
 Artifacts (place in ml/artifacts/):
   model_3_schedule_delay.cbm       ← CatBoost binary model
   model_3_schedule_config.pkl      ← feature names, cat columns, bounds
-  model_3_feature_importance.pkl   ← feature importance for driver display
-
-Startup behaviour:
-  - Loads all three artifacts at startup from ML_ARTIFACTS_DIR
-  - If any file is missing → MODEL_LOADED = False, graceful fallback (no crash)
-  - Exposes score_project() and get_model_status() used by all routers
+  model_3_feature_importance.pkl   ← feature importance (optional, fallback to native)
 
 Scoring formula:
-  delay_risk   = min(1.0, expm1(raw_prediction) / 365)
+  delay_risk   = min(1.0, inverse_signed_log(raw_prediction) / 365)
   cost_risk    = statistical baseline (expenditure_ratio threshold)
   overall_risk = 0.5 * cost_risk + 0.5 * delay_risk
 """
 
+import json
 import logging
 import pickle
 from pathlib import Path
@@ -38,34 +34,29 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # ── Module-level state ────────────────────────────────────────────────────────
-_schedule_model = None          # CatBoostRegressor instance
-_model_config: dict = {}        # from model_3_schedule_config.pkl
-_feature_importance: dict = {}  # from model_3_feature_importance.pkl
-_feature_names: list[str] = []  # ordered feature list for DataFrame construction
-_cat_features: list[str] = []   # categorical column names (CatBoost native)
+_schedule_model = None
+_model_config: dict = {}
+_feature_importance: list = []
+_feature_names: list[str] = []
+_cat_features: list[str] = []
 
 MODEL_LOADED: bool = False
 MODEL_VERSION: Optional[str] = "catboost_schedule_delay_v3"
 
-# Target clipping bounds (matches training: lower=0, upper=365)
 _TARGET_LOWER: float = 0.0
 _TARGET_UPPER: float = 365.0
 
 
 def _load_models() -> None:
-    """
-    Called once at app startup from main.py lifespan.
-    Graceful fallback: sets MODEL_LOADED=False if any artifact is missing.
-    """
+    """Called once at app startup from main.py lifespan."""
     global _schedule_model, _model_config, _feature_importance
     global _feature_names, _cat_features, MODEL_LOADED, MODEL_VERSION
 
     artifacts_dir = Path(settings.ML_ARTIFACTS_DIR)
-    model_path      = artifacts_dir / "model_3_schedule_delay.cbm"
-    config_path     = artifacts_dir / "model_3_schedule_config.pkl"
-    importance_path = artifacts_dir / "model_3_feature_importance.pkl"
+    model_path  = artifacts_dir / "model_3_schedule_delay.cbm"
+    config_path = artifacts_dir / "model_3_schedule_config.pkl"
 
-    missing = [p.name for p in [model_path, config_path, importance_path] if not p.exists()]
+    missing = [p.name for p in [model_path, config_path] if not p.exists()]
     if missing:
         logger.warning(
             "⚠️  PRAGATI-AI: ML artifacts not found: %s  "
@@ -77,111 +68,135 @@ def _load_models() -> None:
         return
 
     try:
-        # Load CatBoost model
-        from catboost import CatBoostRegressor  # lazy import — optional dep
+        # ── 1. Load CatBoost model ────────────────────────────────────────────
+        from catboost import CatBoostRegressor
         _schedule_model = CatBoostRegressor()
         _schedule_model.load_model(str(model_path), format="cbm")
+        logger.info("✅  CatBoost model loaded from %s", model_path.name)
 
-        # Load config
+        # ── 2. Load config (Python 3.13 compatible — only uses builtins) ──────
         with open(config_path, "rb") as f:
             _model_config = pickle.load(f)
 
-        # Load feature importance
-        with open(importance_path, "rb") as f:
-            raw_importance = pickle.load(f)
-
-        # Normalise feature importance to dict keyed by feature name
-        if isinstance(raw_importance, dict):
-            _feature_importance = raw_importance
-        elif hasattr(raw_importance, "iterrows"):
-            # pandas DataFrame with 'feature' and 'importance' columns
-            _feature_importance = dict(
-                zip(raw_importance["feature"], raw_importance["importance"])
-            )
-        else:
-            _feature_importance = {}
-
-        # Extract feature names and categorical columns from config
-        # Config may use different key names — handle common variants
+        # Actual config keys confirmed: feature_columns, categorical_columns
         _feature_names = (
-            _model_config.get("feature_names")
+            _model_config.get("feature_columns")
+            or _model_config.get("feature_names")
             or _model_config.get("features")
-            or _model_config.get("feature_columns")
             or []
         )
         _cat_features = (
-            _model_config.get("cat_features")
-            or _model_config.get("categorical_columns")
+            _model_config.get("categorical_columns")
+            or _model_config.get("cat_features")
             or _model_config.get("cat_cols")
             or []
         )
 
-        # If config has target bounds, use them
-        global _TARGET_UPPER
-        if "target_upper" in _model_config:
-            _TARGET_UPPER = float(_model_config["target_upper"])
-        if "upper_bound" in _model_config:
-            _TARGET_UPPER = float(_model_config["upper_bound"])
+        # ── 3. Feature importance ─────────────────────────────────────────────
+        # The pkl was saved in Python 3.10 (Colab) and fails in Python 3.13
+        # (STACK_GLOBAL requires str). We bypass it and use CatBoost native API.
+        importance_pkl = artifacts_dir / "model_3_feature_importance.pkl"
+        loaded_from_pkl = False
+        if importance_pkl.exists():
+            try:
+                with open(importance_pkl, "rb") as f:
+                    raw = pickle.load(f)
+                if hasattr(raw, "to_dict"):
+                    _feature_importance = raw.to_dict("records")
+                elif isinstance(raw, list):
+                    _feature_importance = raw
+                elif isinstance(raw, dict):
+                    _feature_importance = [
+                        {"Feature Id": k, "Importances": v} for k, v in raw.items()
+                    ]
+                loaded_from_pkl = True
+            except Exception as pkl_err:
+                logger.info(
+                    "Feature importance pkl not loadable (%s) — "
+                    "using CatBoost native get_feature_importance(). This is fine.",
+                    type(pkl_err).__name__,
+                )
+
+        if not loaded_from_pkl:
+            imp_df = _schedule_model.get_feature_importance(prettified=True)
+            _feature_importance = imp_df.to_dict("records")
+
+        # ── 4. Write model_run_metrics.json for the Model Performance UI ──────
+        _write_metrics_json(artifacts_dir)
 
         if _feature_names:
             MODEL_LOADED = True
             logger.info(
-                "✅  PRAGATI-AI: CatBoost schedule-delay model loaded. "
-                "Features: %d  Categorical: %d  Target upper bound: %.0f days",
+                "✅  PRAGATI-AI: ML models loaded. "
+                "Features: %d  Categorical: %d  Target upper: %.0f days  "
+                "Transform: %s",
                 len(_feature_names),
                 len(_cat_features),
                 _TARGET_UPPER,
+                _model_config.get("target_transform", "signed_log"),
             )
         else:
-            # CatBoost can self-report feature names if config didn't have them
-            try:
-                _feature_names = list(_schedule_model.feature_names_)
-                logger.info(
-                    "✅  PRAGATI-AI: Feature names read from CatBoost model directly (%d features).",
-                    len(_feature_names),
-                )
-                MODEL_LOADED = True
-            except Exception:
-                logger.error(
-                    "❌  model_3_schedule_config.pkl has no feature_names key "
-                    "and CatBoost could not provide them. Check your config file."
-                )
-                MODEL_LOADED = False
+            logger.error("❌  Config has no feature_columns key — check pkl file.")
+            MODEL_LOADED = False
 
     except ImportError:
-        logger.error(
-            "❌  catboost package not installed. "
-            "Run: pip install catboost  (or add to requirements.txt)"
-        )
+        logger.error("❌  catboost not installed. Run: pip install catboost")
         MODEL_LOADED = False
     except Exception as exc:
         logger.error("❌  Failed to load ML models: %s", exc, exc_info=True)
         MODEL_LOADED = False
 
 
+def _write_metrics_json(artifacts_dir: Path) -> None:
+    """Write model_run_metrics.json from config so the Model Performance UI shows real data."""
+    metrics_path = artifacts_dir / "model_run_metrics.json"
+    if metrics_path.exists():
+        return  # don't overwrite if already present
+
+    val  = _model_config.get("validation_metrics", {})
+    test = _model_config.get("test_metrics", {})
+
+    metrics = {
+        "model_version":      MODEL_VERSION,
+        "model_name":         _model_config.get("model_name", "Model 3 — Schedule Delay"),
+        "model_type":         "CatBoostRegressor",
+        "target":             _model_config.get("target", "future_schedule_extension_days"),
+        "target_transform":   _model_config.get("target_transform", "signed_log"),
+        # Validation
+        "val_mae_days":       round(val.get("mae_days", 0), 2),
+        "val_rmse_days":      round(val.get("rmse_days", 0), 2),
+        "val_r2":             round(val.get("r2", 0), 4),
+        # Test
+        "test_mae_days":      round(test.get("mae_days", 0), 2),
+        "test_rmse_days":     round(test.get("rmse_days", 0), 2),
+        "test_r2":            round(test.get("r2", 0), 4),
+        "delay_precision":    round(test.get("delay_precision", 0), 4),
+        "delay_recall":       round(test.get("delay_recall", 0), 4),
+        "delay_f1":           round(test.get("delay_f1", 0), 4),
+        # Risk categories
+        "risk_categories":    _model_config.get("risk_categories", {}),
+    }
+    try:
+        with open(metrics_path, "w") as f:
+            json.dump(metrics, f, indent=2)
+        logger.info("✅  model_run_metrics.json written to ml/artifacts/")
+    except Exception as e:
+        logger.warning("Could not write model_run_metrics.json: %s", e)
+
+
 def get_model_status() -> dict:
-    """Returns current model load state for health / model-performance endpoints."""
     return {
-        "model_loaded": MODEL_LOADED,
-        "model_version": MODEL_VERSION,
-        "model_type": "CatBoostRegressor" if MODEL_LOADED else None,
-        "feature_count": len(_feature_names),
+        "model_loaded":      MODEL_LOADED,
+        "model_version":     MODEL_VERSION,
+        "model_type":        "CatBoostRegressor" if MODEL_LOADED else None,
+        "feature_count":     len(_feature_names),
         "cat_feature_count": len(_cat_features),
         "target_upper_days": _TARGET_UPPER,
     }
 
 
 def build_feature_dataframe(feature_dict: dict):
-    """
-    Build a single-row pandas DataFrame matching the exact column order and
-    dtypes the CatBoost model was trained on.
-
-    CatBoost requires DataFrame input with named columns (unlike XGBoost which
-    accepts numpy arrays). Missing columns are filled with 0 for numeric and
-    '' for categorical.
-
-    Returns: pd.DataFrame with shape (1, n_features)
-    """
+    """Build a single-row DataFrame for CatBoost inference."""
     import pandas as pd
 
     cat_set = set(_cat_features)
@@ -196,146 +211,122 @@ def build_feature_dataframe(feature_dict: dict):
     return pd.DataFrame([row], columns=_feature_names)
 
 
+def _inverse_signed_log(x: float) -> float:
+    """
+    Invert the signed_log transform used during training.
+    signed_log(y) = sign(y) * log1p(|y|)
+    inverse:        sign(x) * expm1(|x|)
+    """
+    return float(np.sign(x) * np.expm1(abs(x)))
+
+
 def score_project(feature_dict: dict) -> dict:
     """
-    Run the CatBoost schedule-delay model and return risk scores.
+    Run CatBoost schedule-delay model and return risk scores.
 
-    Decoding pipeline:
-      1. Model outputs log1p-transformed days (training used log1p on clipped [0, 365])
-      2. Invert: actual_days = expm1(raw_output), clip to [0, TARGET_UPPER]
-      3. Normalise: delay_risk = actual_days / TARGET_UPPER  →  [0.0, 1.0]
-
-    Cost risk uses a statistical baseline (no cost model trained yet).
-
-    Returns:
-        {
-          "delay_risk":        float,  # 0–1 schedule delay risk
-          "predicted_days":    float,  # predicted future extension in days
-          "risk_category":     str,    # "On Track" | "Low" | "Moderate" | "High"
-          "cost_risk":         float,  # statistical baseline
-          "overall_risk":      float,  # 0.5 * cost_risk + 0.5 * delay_risk
-          "model_mode":        str,    # "catboost" | "baseline"
-          "model_version":     str | None,
-        }
+    Target transform is signed_log (confirmed from model_3_schedule_config.pkl).
+    Decoding: actual_days = sign(x) * expm1(|x|), then clip to [0, 365].
     """
     if MODEL_LOADED and _schedule_model is not None:
         try:
             X = build_feature_dataframe(feature_dict)
             raw_pred = float(_schedule_model.predict(X)[0])
 
-            # Invert log1p transformation, clip to [0, TARGET_UPPER]
-            actual_days = float(np.expm1(max(0.0, raw_pred)))
-            actual_days = min(actual_days, _TARGET_UPPER)
-            actual_days = max(0.0, actual_days)
-
-            delay_risk = round(actual_days / _TARGET_UPPER, 4)
-            model_mode = "catboost"
+            actual_days = _inverse_signed_log(raw_pred)
+            actual_days = max(0.0, min(actual_days, _TARGET_UPPER))
+            delay_risk  = round(actual_days / _TARGET_UPPER, 4)
+            model_mode  = "catboost"
         except Exception as exc:
-            logger.warning("CatBoost inference failed, falling back to baseline: %s", exc)
+            logger.warning("CatBoost inference failed → baseline: %s", exc)
             actual_days = 0.0
             delay_risk, model_mode = _baseline_delay(feature_dict)
     else:
         actual_days = 0.0
         delay_risk, model_mode = _baseline_delay(feature_dict)
 
-    # Statistical cost risk baseline (cost model not yet trained)
     exp_ratio = float(feature_dict.get("expenditure_ratio", 0.0))
-    cost_risk = round(0.65 if exp_ratio > 0.6 else 0.25, 4)
-
+    cost_risk    = round(0.65 if exp_ratio > 0.6 else 0.25, 4)
     overall_risk = round(0.5 * cost_risk + 0.5 * delay_risk, 4)
 
     return {
-        "delay_risk": delay_risk,
+        "delay_risk":     delay_risk,
         "predicted_days": round(actual_days, 1),
-        "risk_category": _delay_category(actual_days),
-        "cost_risk": cost_risk,
-        "overall_risk": overall_risk,
-        "model_mode": model_mode,
-        "model_version": MODEL_VERSION,
+        "risk_category":  _delay_category(actual_days),
+        "cost_risk":      cost_risk,
+        "overall_risk":   overall_risk,
+        "model_mode":     model_mode,
+        "model_version":  MODEL_VERSION,
     }
 
 
 def get_top_drivers(top_n: int = 5) -> list[dict]:
-    """
-    Return top-N feature importance drivers from model_3_feature_importance.pkl.
-
-    This uses global feature importance (not per-project SHAP) because:
-      - The model is a regressor (SHAP on regressors requires extra setup)
-      - Feature importance gives a fast, interpretable signal for the UI
-      - Per-project SHAP can be added as a future enhancement
-
-    Returns list of driver dicts:
-        [{"feature": str, "label": str, "importance": float, "rank": int}]
-    """
+    """Return top-N feature importance drivers."""
     if not _feature_importance:
         return []
 
-    sorted_features = sorted(
-        _feature_importance.items(), key=lambda x: abs(x[1]), reverse=True
+    sorted_feats = sorted(
+        _feature_importance,
+        key=lambda x: abs(x.get("Importances", 0)),
+        reverse=True,
     )[:top_n]
 
     return [
         {
-            "feature": feat,
-            "label": _humanise_feature(feat),
-            "importance": round(float(imp), 4),
-            "rank": i + 1,
+            "feature":    item["Feature Id"],
+            "label":      _humanise_feature(item["Feature Id"]),
+            "importance": round(float(item["Importances"]), 4),
+            "rank":       i + 1,
         }
-        for i, (feat, imp) in enumerate(sorted_features)
+        for i, item in enumerate(sorted_feats)
     ]
 
 
 def get_shap_drivers(feature_dict: dict, top_n: int = 5) -> list[dict]:
-    """
-    Kept for API compatibility. Returns global feature importance drivers.
-    Full per-project SHAP can be enabled once catboost SHAP is configured.
-    """
+    """Kept for API compatibility."""
     return get_top_drivers(top_n=top_n)
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _baseline_delay(feature_dict: dict) -> tuple[float, str]:
-    """Statistical fallback delay risk when model is not loaded."""
     schedule_gap = float(feature_dict.get("schedule_gap_pct", 0.0))
-    delay_risk = round(0.60 if schedule_gap > 20 else 0.20, 4)
-    return delay_risk, "baseline"
+    return round(0.60 if schedule_gap > 20 else 0.20, 4), "baseline"
 
 
 def _delay_category(actual_days: float) -> str:
-    """Map predicted delay days to a human-readable risk category."""
     if actual_days <= 0:
         return "On Track"
     elif actual_days <= 30:
         return "Low Delay Risk"
     elif actual_days <= 90:
         return "Moderate Delay Risk"
-    else:
+    elif actual_days <= 180:
         return "High Delay Risk"
+    else:
+        return "Critical Delay Risk"
 
 
-# ── Human-readable feature label map ─────────────────────────────────────────
 _FEATURE_LABELS = {
-    "revised_doc":                  "Revised date of completion",
-    "days_to_revised_doc":          "Days remaining to revised deadline",
-    "physical_progress_pct":        "Physical progress (%)",
-    "financial_progress_pct":       "Financial progress (%)",
-    "schedule_gap_pct":             "Schedule gap vs plan (%)",
-    "cumulative_expenditure_cr":    "Cumulative expenditure (₹ Cr)",
-    "original_cost_cr":             "Original project cost (₹ Cr)",
-    "revised_cost_cr":              "Revised project cost (₹ Cr)",
-    "risk_signal_count":            "Number of active risk signals",
-    "peer_progress_percentile":     "Progress vs peer projects",
+    "revised_doc":                   "Revised date of completion",
+    "days_to_revised_doc":           "Days remaining to revised deadline",
+    "physical_progress_pct":         "Physical progress (%)",
+    "financial_progress_pct":        "Financial progress (%)",
+    "schedule_gap_pct":              "Schedule gap vs plan (%)",
+    "cumulative_expenditure_cr":     "Cumulative expenditure (₹ Cr)",
+    "original_cost_cr":              "Original project cost (₹ Cr)",
+    "revised_cost_cr":               "Revised project cost (₹ Cr)",
+    "risk_signal_count":             "Number of active risk signals",
+    "peer_progress_percentile":      "Progress vs peer projects",
     "peer_financial_gap_percentile": "Financial gap vs peer projects",
-    "peer_schedule_gap_percentile": "Schedule gap vs peer projects",
-    "is_after_revised_target":      "Past revised completion target",
-    "time_elapsed_pct":             "Time elapsed vs project duration",
-    "financial_physical_gap_pct":   "Financial vs physical progress gap",
-    "project_age_days":             "Project age (days)",
-    "snapshot_month_num":           "Reporting month index",
-    "heuristic_risk_level":         "Heuristic risk classification",
-    "legacy_code":                  "Legacy project code flag",
-    "approval_date_dt_month":       "Approval month",
+    "peer_schedule_gap_percentile":  "Schedule gap vs peer projects",
+    "is_after_revised_target":       "Past revised completion target",
+    "time_elapsed_pct":              "Time elapsed vs project duration",
+    "financial_physical_gap_pct":    "Financial vs physical progress gap",
+    "project_age_days":              "Project age (days)",
+    "snapshot_month_num":            "Reporting month index",
+    "heuristic_risk_level":          "Heuristic risk classification",
+    "legacy_code":                   "Legacy project code flag",
+    "approval_date_dt_month":        "Approval month",
 }
 
 
