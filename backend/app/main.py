@@ -74,6 +74,7 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 from app.routers import auth, projects, alerts, dashboard, model_performance, data_provenance, admin  # noqa: E402
+from app.routers import predict  # noqa: E402
 
 app.include_router(auth.router)
 app.include_router(projects.router)
@@ -82,6 +83,7 @@ app.include_router(dashboard.router)
 app.include_router(model_performance.router)
 app.include_router(data_provenance.router)
 app.include_router(admin.router)
+app.include_router(predict.router)
 
 
 @app.get("/health")

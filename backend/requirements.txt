@@ -1,18 +1,35 @@
+# ── Web framework ──────────────────────────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# ── Database ───────────────────────────────────────────────────────────────────
 sqlalchemy==2.0.30
 alembic==1.13.1
-python-multipart==0.0.9
+psycopg2-binary>=2.9.9       # PostgreSQL adapter for Supabase
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
 bcrypt==4.2.0
+
+# ── Config / Settings ──────────────────────────────────────────────────────────
 pydantic==2.7.1
 pydantic-settings==2.3.1
-joblib==1.4.2
-xgboost==2.1.1
-shap==0.46.0
+python-dotenv==1.0.1
+
+# ── ML — Model 3 (CatBoost Schedule Delay) ────────────────────────────────────
+catboost>=1.2.7              # primary model: CatBoostRegressor
+xgboost==2.1.1               # kept for baseline/fallback compatibility
+
+# ── ML — Data / Explainability ────────────────────────────────────────────────
 pandas==2.2.3
 numpy==2.1.3
-openpyxl==3.1.4
+joblib==1.4.2
+shap==0.46.0                 # optional — SHAP explanations (soft import)
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+openpyxl==3.1.4              # Excel ingestion
+
+# ── Testing ────────────────────────────────────────────────────────────────────
 pytest==8.2.2
 httpx==0.27.0
-python-dotenv==1.0.1
