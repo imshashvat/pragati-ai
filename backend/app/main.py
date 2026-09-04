@@ -70,9 +70,22 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# Build list of allowed origins — supports local dev, Vercel, Railway, and ngrok tunnels.
+import os as _os
+_extra = [o.strip() for o in _os.environ.get("EXTRA_CORS_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_ORIGIN, "http://localhost:3000"],
+    allow_origins=[
+        settings.FRONTEND_ORIGIN,
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://pragati-ai.vercel.app",
+        "https://pragati-ai-git-main.vercel.app",
+        *_extra,   # Add any extra URLs via EXTRA_CORS_ORIGINS env var
+    ],
+    allow_origin_regex=r"https://.*\.(vercel\.app|ngrok\.io|ngrok-free\.app|railway\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
