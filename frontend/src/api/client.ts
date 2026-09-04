@@ -6,7 +6,8 @@ import axios from 'axios'
 
 // In production (Vercel), set VITE_API_BASE_URL to your Railway backend URL.
 // In development, Vite proxy forwards all /auth, /projects, etc. to localhost:8000.
-const BASE = import.meta.env.VITE_API_BASE_URL ?? '/'
+const rawBase = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
+const BASE = rawBase ? rawBase.replace(/\/+$/, '') : ''
 
 const client = axios.create({
   baseURL: BASE,

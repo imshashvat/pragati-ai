@@ -1,15 +1,8 @@
 {
   "rewrites": [
-    { "source": "/auth/:path*",           "destination": "RAILWAY_BACKEND_URL/auth/:path*" },
-    { "source": "/projects",              "destination": "RAILWAY_BACKEND_URL/projects" },
-    { "source": "/projects/:path*",       "destination": "RAILWAY_BACKEND_URL/projects/:path*" },
-    { "source": "/dashboard/:path*",      "destination": "RAILWAY_BACKEND_URL/dashboard/:path*" },
-    { "source": "/alerts",                "destination": "RAILWAY_BACKEND_URL/alerts" },
-    { "source": "/alerts/:path*",         "destination": "RAILWAY_BACKEND_URL/alerts/:path*" },
-    { "source": "/model-performance",     "destination": "RAILWAY_BACKEND_URL/model-performance" },
-    { "source": "/data-provenance",       "destination": "RAILWAY_BACKEND_URL/data-provenance" },
-    { "source": "/admin/:path*",          "destination": "RAILWAY_BACKEND_URL/admin/:path*" },
-    { "source": "/health",                "destination": "RAILWAY_BACKEND_URL/health" },
-    { "source": "/predict",               "destination": "RAILWAY_BACKEND_URL/predict" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
