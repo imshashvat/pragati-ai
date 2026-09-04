@@ -143,10 +143,14 @@ def seed(db: Session) -> None:
         ),
     ]
     for u in users:
-        if not db.query(User).filter_by(username=u.username).first():
+        exists = db.query(User).filter(
+            (User.username == u.username) | (User.email == u.email)
+        ).first()
+        if not exists:
             db.add(u)
     db.flush()
-    print(f"  ✔ {len(users)} users seeded")
+    print("  ✔ users seeded (skipped existing)")
+
 
     # ── Seed ingestion log entry so provenance screen shows something ─────────
     ingest_log = IngestionLog(

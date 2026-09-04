@@ -40,10 +40,15 @@ async def lifespan(app: FastAPI):
     # 2 — Seed if empty
     with SessionLocal() as db:
         from app.models.ingestion_log import User
-        if db.query(User).count() == 0:
-            logger.info("Empty database — running seed…")
-            from app.seed import seed
-            seed(db)
+        try:
+            if db.query(User).count() == 0:
+                logger.info("Empty database — running seed…")
+                from app.seed import seed
+                seed(db)
+                db.commit()
+                logger.info("  ✔ users seeded (skipped existing)")
+        except Exception as seed_err:
+            logger.warning("Seed skipped or partial (DB may already have data): %s", seed_err)
 
     # 3 — Load ML models
     from app.services.prediction import _load_models
