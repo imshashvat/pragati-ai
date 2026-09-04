@@ -10,6 +10,7 @@ import math
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -39,43 +40,78 @@ def list_projects(
     """
     Returns projects enriched with latest prediction + alert data,
     ranked by computed priority score (highest first).
-    Default: returns all projects that have any open alert.
+    Uses subqueries for latest prediction and alert — single round-trip.
     """
-    q = db.query(Project)
-
-    if sector:
-        q = q.filter(Project.sector == sector)
-    if ministry:
-        q = q.filter(Project.ministry == ministry)
-
-    projects = q.all()
-    results = []
-
-    for proj in projects:
-        # Latest prediction
-        pred = (
-            db.query(Prediction)
-            .filter(Prediction.project_id == proj.project_id)
-            .order_by(Prediction.created_at.desc())
-            .first()
+    # Subquery: latest prediction_id per project
+    latest_pred_sq = (
+        db.query(
+            Prediction.project_id,
+            func.max(Prediction.created_at).label("max_created"),
         )
+        .group_by(Prediction.project_id)
+        .subquery()
+    )
+
+    # Subquery: latest alert created_at per project
+    latest_alert_sq = (
+        db.query(
+            Alert.project_id,
+            func.max(Alert.created_at).label("max_created"),
+        )
+        .group_by(Alert.project_id)
+        .subquery()
+    )
+
+    # Fetch all projects with optional sector/ministry filter
+    proj_q = db.query(Project)
+    if sector:
+        proj_q = proj_q.filter(Project.sector == sector)
+    if ministry:
+        proj_q = proj_q.filter(Project.ministry == ministry)
+    projects = {p.project_id: p for p in proj_q.all()}
+
+    if not projects:
+        return {"total": 0, "page": page, "page_size": page_size, "items": []}
+
+    # Fetch latest predictions for all matching projects in ONE query
+    preds = (
+        db.query(Prediction)
+        .join(
+            latest_pred_sq,
+            (Prediction.project_id == latest_pred_sq.c.project_id)
+            & (Prediction.created_at == latest_pred_sq.c.max_created),
+        )
+        .filter(Prediction.project_id.in_(projects.keys()))
+        .all()
+    )
+    pred_map = {p.project_id: p for p in preds}
+
+    # Fetch latest alerts for all matching projects in ONE query
+    alerts = (
+        db.query(Alert)
+        .join(
+            latest_alert_sq,
+            (Alert.project_id == latest_alert_sq.c.project_id)
+            & (Alert.created_at == latest_alert_sq.c.max_created),
+        )
+        .filter(Alert.project_id.in_(projects.keys()))
+        .all()
+    )
+    alert_map = {a.project_id: a for a in alerts}
+
+    results = []
+    for proj_id, proj in projects.items():
+        pred = pred_map.get(proj_id)
         if not pred:
             continue
-
         if min_risk is not None and pred.overall_risk < min_risk:
             continue
 
-        # Latest open alert
-        alert = (
-            db.query(Alert)
-            .filter(Alert.project_id == proj.project_id)
-            .order_by(Alert.created_at.desc())
-            .first()
-        )
+        alert = alert_map.get(proj_id)
         alert_status = alert.status if alert else None
         alert_id = alert.alert_id if alert else None
 
-        # Status filter — "needs_action" maps to open statuses
+        # Status filter
         if status == "needs_action":
             if alert_status not in {"created", "acknowledged", "investigating"}:
                 continue
