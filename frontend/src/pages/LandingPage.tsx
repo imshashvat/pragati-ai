@@ -7,6 +7,7 @@ import '../landing.css'
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePageTitle } from '../hooks/usePageTitle'
+import IndiaMapSection from '../components/IndiaMapSection'
 
 // ── Animated count-up ─────────────────────────────────────────────────────────
 function useCountUp(target: number, duration = 1600, started = false) {
@@ -118,40 +119,32 @@ export default function LandingPage() {
   return (
     <div className="lp">
 
-      {/* ── UTILITY BAR ─────────────────────────────────────────────────── */}
-      <div className="lp-util">
-        <div className="lp-container lp-util-inner">
-          <div className="lp-util-left">
-            <img
-              src="/images/data-for-dev.png"
-              alt="MoSPI"
-              className="lp-util-emblem"
-              onError={e => (e.currentTarget.style.display = 'none')}
-            />
-            <span>Ministry of Statistics &amp; Programme Implementation · Government of India</span>
-          </div>
-          <div className="lp-util-right">
-            <span>PAIMANA Framework</span>
-          </div>
-        </div>
-      </div>
-
       {/* ── NAVBAR ──────────────────────────────────────────────────────── */}
+
       <header className="lp-nav" role="banner">
+
+
         <div className="lp-container lp-nav-inner">
+          {/* Left: MoSPI logo + divider + PRAGATI-AI brand */}
           <a href="/" className="lp-logo" aria-label="PRAGATI-AI home">
-            <div className="lp-logo-mark" aria-hidden="true">P</div>
+            <img
+              src="/images/logo-mospi.png"
+              alt="MoSPI — Ministry of Statistics and Programme Implementation"
+              className="lp-mospi-logo"
+            />
+            <div className="lp-logo-divider" aria-hidden="true" />
             <div className="lp-logo-text">
               <span className="lp-logo-name">PRAGATI-AI</span>
-              <span className="lp-logo-sub">Predictive Infrastructure Intelligence</span>
+              <span className="lp-logo-sub">Predictive Infrastructure Intelligence · MoSPI</span>
             </div>
           </a>
 
           <nav className="lp-nav-links" aria-label="Primary navigation">
-            <a href="#about"   className="lp-nav-link">About</a>
-            <a href="#sectors" className="lp-nav-link">Sectors</a>
-            <a href="#process" className="lp-nav-link">How It Works</a>
-            <a href="#ai"      className="lp-nav-link">Data &amp; AI</a>
+            <a href="#about"    className="lp-nav-link">About</a>
+            <a href="#sectors"  className="lp-nav-link">Sectors</a>
+            <a href="#process"  className="lp-nav-link">How It Works</a>
+            <a href="#statemap" className="lp-nav-link">State Map</a>
+            <a href="#ai"       className="lp-nav-link">Data &amp; AI</a>
             <Link to="/login" className="lp-nav-cta" id="nav-sign-in">
               Officer Sign In
             </Link>
@@ -172,10 +165,11 @@ export default function LandingPage() {
 
         {menuOpen && (
           <nav className="lp-drawer" aria-label="Mobile navigation">
-            <a href="#about"   onClick={() => setMenuOpen(false)} className="lp-drawer-link">About</a>
-            <a href="#sectors" onClick={() => setMenuOpen(false)} className="lp-drawer-link">Sectors</a>
-            <a href="#process" onClick={() => setMenuOpen(false)} className="lp-drawer-link">How It Works</a>
-            <a href="#ai"      onClick={() => setMenuOpen(false)} className="lp-drawer-link">Data &amp; AI</a>
+            <a href="#about"    onClick={() => setMenuOpen(false)} className="lp-drawer-link">About</a>
+            <a href="#sectors"  onClick={() => setMenuOpen(false)} className="lp-drawer-link">Sectors</a>
+            <a href="#process"  onClick={() => setMenuOpen(false)} className="lp-drawer-link">How It Works</a>
+            <a href="#statemap" onClick={() => setMenuOpen(false)} className="lp-drawer-link">State Map</a>
+            <a href="#ai"       onClick={() => setMenuOpen(false)} className="lp-drawer-link">Data &amp; AI</a>
             <Link to="/login"  onClick={() => setMenuOpen(false)} className="lp-drawer-cta">
               Officer Sign In
             </Link>
@@ -351,6 +345,9 @@ export default function LandingPage() {
 
         </div>
       </section>
+
+      {/* ── STATE-WISE PROJECTS MAP ──────────────────────────────────────── */}
+      <IndiaMapSection />
 
       {/* ── SECTORS ─────────────────────────────────────────────────────── */}
       <section id="sectors" className="lp-section lp-section-pale" aria-labelledby="sectors-h">
