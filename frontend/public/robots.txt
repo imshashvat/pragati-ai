@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /admin
+Disallow: /login
+
+# PRAGATI-AI — MoSPI PS-26103
+# Internal government intelligence platform — not intended for public indexing
