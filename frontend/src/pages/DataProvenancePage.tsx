@@ -72,7 +72,7 @@ export default function DataProvenancePage() {
         </p>
       </div>
 
-      {/* Source banner */}
+      {/* Source banner — green when model loaded (live predictions), yellow when demo only */}
       <div
         className="flex items-start gap-3 px-4 py-4 rounded-md"
         style={{
@@ -89,12 +89,12 @@ export default function DataProvenancePage() {
         />
         <div>
           <div className="text-[14px] font-semibold" style={{ color: isDemo ? '#8E6A00' : '#198038' }}>
-            {isDemo ? 'Demo Data Active' : 'Live ML Predictions Active'}
+            {isDemo ? '⚠ ML Model Not Loaded — Baseline Heuristics Only' : '✓ CatBoost ML Model Active — Live Scoring Ready'}
           </div>
           <p className="text-[13px] mt-0.5" style={{ color: isDemo ? '#8E6A00' : '#198038', opacity: 0.8 }}>
             {isDemo
-              ? 'All predictions use seeded demonstration data (model_mode = "demo"). The CatBoost model is loaded and operational, but existing scored records were generated using demo/baseline scoring. Displayed figures are for demonstration only.'
-              : 'Live CatBoost model is scoring real PAIMANA project data. Predictions reflect actual risk indicators sourced from ministry MIS exports.'}
+              ? 'No ML model found in ml/artifacts/. Risk predictions use rule-based baseline heuristics. Drop the CatBoost artifacts and restart the backend to activate live ML scoring.'
+              : 'CatBoost model is loaded and operational. All new predictions will use ML scoring. Existing project records shown below were seeded as demonstration data.'}
           </p>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function DataProvenancePage() {
             { label: 'Last successful sync',  value: lastSync,  accent: undefined },
             { label: 'Model status',          value: data?.model_loaded ? `✓ CatBoost loaded — v${data.model_version ?? 'catboost_v3'}` : '⚠ Model not loaded (demo mode)', accent: data?.model_loaded ? '#198038' : '#B45309' },
             { label: 'Feature count',         value: data?.feature_count != null ? `${data.feature_count} features` : '—', accent: undefined },
-            { label: 'Data source',           value: isDemo ? 'Synthetic (demo seed)' : 'Live PAIMANA export', accent: undefined },
+            { label: 'Data source',           value: isDemo ? 'Baseline heuristics (no ML model)' : 'CatBoost ML model (seeded project data)', accent: isDemo ? '#B45309' : '#198038' },
           ].map(({ label, value, accent }) => (
             <div
               key={label}

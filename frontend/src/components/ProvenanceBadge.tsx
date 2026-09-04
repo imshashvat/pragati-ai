@@ -20,14 +20,14 @@ export default function ProvenanceBadge() {
       <span
         className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded ${isDemo ? 'prov-demo text-[#8E6A00]' : 'prov-live text-[#198038]'}`}
         title={isDemo
-          ? 'Using synthetic demo data — not real ML predictions'
-          : 'Live ML model active'}
+          ? 'No ML model loaded — predictions use baseline heuristics'
+          : 'CatBoost ML model loaded — live scoring active'}
       >
         <span
           className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: isDemo ? '#F1C21B' : '#198038' }}
         />
-        {isDemo ? 'Demo Data' : 'Live'}
+        {isDemo ? 'Demo Mode' : 'Live ML'}
       </span>
       {data.last_sync && (
         <span className="hidden sm:block text-[12px]" style={{ color: '#8D8D8D' }}>

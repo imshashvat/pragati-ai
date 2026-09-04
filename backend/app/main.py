@@ -5,8 +5,9 @@ FastAPI application entry point.
 
 Startup sequence:
   1. Create all DB tables (idempotent)
-  2. Seed default users + demo data if DB is fresh
-  3. Load ML models from ml/artifacts/ (graceful no-model if missing)
+  2. Load ML models from ml/artifacts/ (graceful no-model if missing)
+  3. Seed default users + demo data if DB is fresh
+     (models are loaded first so seeded predictions use CatBoost scoring)
 
 Run:
   cd backend/
@@ -37,7 +38,11 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables ready.")
 
-    # 2 — Seed if empty
+    # 2 — Load ML models FIRST so seeded predictions use real CatBoost scoring
+    from app.services.prediction import _load_models
+    _load_models()
+
+    # 3 — Seed if empty (model already loaded above)
     with SessionLocal() as db:
         from app.models.ingestion_log import User
         try:
@@ -46,16 +51,12 @@ async def lifespan(app: FastAPI):
                 from app.seed import seed
                 seed(db)
                 db.commit()
-                logger.info("  ✔ users seeded (skipped existing)")
+                logger.info("  ✔ Seed complete (ML model was loaded, predictions use CatBoost scoring)")
         except Exception as seed_err:
             logger.warning("Seed skipped or partial (DB may already have data): %s", seed_err)
 
-    # 3 — Load ML models
-    from app.services.prediction import _load_models
-    _load_models()
-
     yield
-    # (shutdown — nothing to clean up for SQLite prototype)
+    # (shutdown — nothing to clean up)
 
 
 app = FastAPI(
