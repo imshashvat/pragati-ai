@@ -1,0 +1,23 @@
+{
+  "model_version": "catboost_schedule_delay_v3",
+  "model_name": "PRAGATI-AI Future Schedule Extension Forecast",
+  "model_type": "CatBoostRegressor",
+  "target": "future_schedule_extension_days",
+  "target_transform": "signed_log",
+  "val_mae_days": 25.03,
+  "val_rmse_days": 101.69,
+  "val_r2": -0.0209,
+  "test_mae_days": 33.14,
+  "test_rmse_days": 186.45,
+  "test_r2": 0.0059,
+  "delay_precision": 0.3118,
+  "delay_recall": 0.9206,
+  "delay_f1": 0.4659,
+  "risk_categories": {
+    "On Track": "<= 0 days",
+    "Low Delay Risk": "1-30 days",
+    "Moderate Delay Risk": "31-90 days",
+    "High Delay Risk": "91-180 days",
+    "Critical Delay Risk": "> 180 days"
+  }
+}

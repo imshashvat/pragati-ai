@@ -64,8 +64,14 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ML trained model binaries (tracked via .gitkeep)
+# Binary model files — large, never commit to git
 ml/artifacts/*.joblib
 ml/artifacts/*.pkl
 ml/artifacts/*.onnx
+ml/artifacts/*.cbm
+ml/artifacts/*.h5
+ml/artifacts/*.pt
+ml/artifacts/*.pth
 !ml/artifacts/.gitkeep
 !ml/notebook/.gitkeep
+# model_run_metrics.json is small JSON → intentionally committed for UI display

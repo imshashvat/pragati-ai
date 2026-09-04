@@ -93,8 +93,8 @@ export default function DataProvenancePage() {
           </div>
           <p className="text-[13px] mt-0.5" style={{ color: isDemo ? '#8E6A00' : '#198038', opacity: 0.8 }}>
             {isDemo
-              ? 'All predictions use synthetic data tagged model_mode = "demo". No real ML model is loaded. Displayed figures are for demonstration only and must not be treated as real risk assessments.'
-              : 'Live XGBoost model is scoring real PAIMANA project data. Predictions reflect actual risk indicators.'}
+              ? 'All predictions use seeded demonstration data (model_mode = "demo"). The CatBoost model is loaded and operational, but existing scored records were generated using demo/baseline scoring. Displayed figures are for demonstration only.'
+              : 'Live CatBoost model is scoring real PAIMANA project data. Predictions reflect actual risk indicators sourced from ministry MIS exports.'}
           </p>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function DataProvenancePage() {
         <dl>
           {[
             { label: 'Last successful sync',  value: lastSync,  accent: undefined },
-            { label: 'Model status',          value: data?.model_loaded ? `Loaded — v${data.model_version}` : 'Not loaded', accent: data?.model_loaded ? '#198038' : '#B45309' },
+            { label: 'Model status',          value: data?.model_loaded ? `✓ CatBoost loaded — v${data.model_version ?? 'catboost_v3'}` : '⚠ Model not loaded (demo mode)', accent: data?.model_loaded ? '#198038' : '#B45309' },
             { label: 'Feature count',         value: data?.feature_count != null ? `${data.feature_count} features` : '—', accent: undefined },
             { label: 'Data source',           value: isDemo ? 'Synthetic (demo seed)' : 'Live PAIMANA export', accent: undefined },
           ].map(({ label, value, accent }) => (

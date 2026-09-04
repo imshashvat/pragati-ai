@@ -1,5 +1,6 @@
 // src/components/Layout.tsx
-// Premium white sidebar + 64px topbar + mobile hamburger drawer
+// Premium dark-navy sidebar + glass topbar — consistent with LandingPage design system
+// Colors mirror landing.css: #102A43 navy, #0F62FE primary, #8bacc8 muted
 
 import React, { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -7,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { logout } from '../api/auth'
 import ProvenanceBadge from './ProvenanceBadge'
 
-// ── Lucide-style SVG icons (inline — no external dependency) ──────────────
+// ── Inline SVG Icons ──────────────────────────────────────────────────────────
 const Icon = {
   LayoutDashboard: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -60,6 +61,11 @@ const Icon = {
       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   ),
+  ChevronRight: () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  ),
 }
 
 interface NavItem {
@@ -67,6 +73,7 @@ interface NavItem {
   label: string
   icon: React.FC
   roles: string[]
+  badge?: string
 }
 
 const NAV: NavItem[] = [
@@ -78,7 +85,21 @@ const NAV: NavItem[] = [
   { to: '/admin',           label: 'Admin',              icon: Icon.Settings,        roles: ['admin'] },
 ]
 
-// ── Sidebar content (shared between desktop and drawer) ───────────────────
+function roleLabel(role: string | null): string {
+  if (!role) return ''
+  const map: Record<string, string> = {
+    officer: 'Field Officer',
+    senior_official: 'Senior Official',
+    admin: 'Administrator',
+  }
+  return map[role] ?? role.replace(/_/g, ' ')
+}
+
+function roleInitial(role: string | null): string {
+  return roleLabel(role).charAt(0).toUpperCase()
+}
+
+// ── Sidebar content ───────────────────────────────────────────────────────────
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { role, clearAuth } = useAuth()
   const navigate = useNavigate()
@@ -93,69 +114,230 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const visible = NAV.filter(n => role && n.roles.includes(role))
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-[#E0E4E8]">
-        <div>
-          <div
-            className="text-sm font-semibold tracking-tight"
-            style={{ color: '#102A43', letterSpacing: '-0.01em' }}
-          >
-            PRAGATI-AI
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* ── Logo bar ─────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '20px 20px 18px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Logo mark */}
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #0F62FE 0%, #0050E6 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: 700,
+            color: '#fff',
+            flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(15,98,254,0.4)',
+            fontFamily: 'Inter, sans-serif',
+            letterSpacing: '-0.01em',
+          }}>
+            P
           </div>
-          <div className="text-[11px] mt-0.5" style={{ color: '#697077' }}>
-            PAIMANA Platform
+          <div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 700,
+              color: '#FFFFFF',
+              letterSpacing: '0.03em',
+              lineHeight: 1.1,
+            }}>
+              PRAGATI-AI
+            </div>
+            <div style={{ fontSize: '10px', color: '#8bacc8', marginTop: '2px', letterSpacing: '0.01em' }}>
+              PAIMANA Platform
+            </div>
           </div>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-1 rounded text-[#697077] hover:text-[#161616] hover:bg-[#F3F5F7] transition-colors"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#8bacc8', padding: '4px', borderRadius: '4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 150ms',
+            }}
             aria-label="Close menu"
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#8bacc8')}
           >
             <Icon.X />
           </button>
         )}
       </div>
 
-      {/* Nav section label */}
-      <div className="px-5 pt-5 pb-2">
-        <span className="section-label">Navigation</span>
+      {/* ── Section label ────────────────────────────────────────────────── */}
+      <div style={{
+        padding: '18px 20px 8px',
+        fontSize: '10px',
+        fontWeight: 600,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        color: 'rgba(139,172,200,0.5)',
+      }}>
+        Navigation
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto pb-4" aria-label="Main navigation">
+      {/* ── Nav items ────────────────────────────────────────────────────── */}
+      <nav
+        style={{ flex: 1, overflowY: 'auto', paddingBottom: '12px' }}
+        aria-label="Main navigation"
+      >
         {visible.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
-            id={`nav-${item.to.replace('/', '').replace(/-/g, '_')}`}
+            id={`nav-${item.to.replace('/', '').replace(/-/g, '_') || 'dashboard'}`}
             onClick={onClose}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-            aria-current={undefined}  // NavLink handles this internally
-            end={item.to === '/dashboard'}  // only exact match for dashboard
+            end={item.to === '/dashboard'}
+            style={{ textDecoration: 'none', display: 'block' }}
           >
             {({ isActive }) => (
-              <>
-                <span className="flex-shrink-0" style={{ opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '9px 20px',
+                  margin: '1px 8px',
+                  borderRadius: '7px',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 500 : 400,
+                  color: isActive ? '#FFFFFF' : '#8bacc8',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(15,98,254,0.25) 0%, rgba(15,98,254,0.12) 100%)'
+                    : 'transparent',
+                  border: isActive ? '1px solid rgba(15,98,254,0.25)' : '1px solid transparent',
+                  boxShadow: isActive ? '0 1px 4px rgba(15,98,254,0.12)' : 'none',
+                  transition: 'all 150ms ease',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = '#8bacc8'
+                  }
+                }}
+              >
+                {/* Active left bar */}
+                {isActive && (
+                  <div style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '20%',
+                    bottom: '20%',
+                    width: '3px',
+                    borderRadius: '0 2px 2px 0',
+                    background: '#0F62FE',
+                  }} aria-hidden="true" />
+                )}
+                <span style={{ opacity: isActive ? 1 : 0.65, flexShrink: 0 }} aria-hidden="true">
                   <item.icon />
                 </span>
                 <span>{item.label}</span>
-              </>
+                {isActive && (
+                  <span style={{ marginLeft: 'auto', opacity: 0.4 }} aria-hidden="true">
+                    <Icon.ChevronRight />
+                  </span>
+                )}
+              </div>
             )}
           </NavLink>
         ))}
       </nav>
 
-      {/* User / logout */}
-      <div className="px-5 py-4 border-t border-[#E0E4E8]">
-        <div className="text-[11px] font-medium" style={{ color: '#697077', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {role?.replace(/_/g, ' ')}
+      {/* ── User section ─────────────────────────────────────────────────── */}
+      <div style={{
+        padding: '14px 16px',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          marginBottom: '10px',
+        }}>
+          {/* Avatar */}
+          <div style={{
+            width: '30px',
+            height: '30px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #0F62FE, #0050E6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#fff',
+            flexShrink: 0,
+          }}>
+            {roleInitial(role)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#c8ddf0',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {roleLabel(role)}
+            </div>
+            <div style={{ fontSize: '10px', color: 'rgba(139,172,200,0.5)', marginTop: '1px' }}>
+              PAIMANA · Authenticated
+            </div>
+          </div>
         </div>
         <button
           id="btn-logout"
           onClick={handleLogout}
-          className="mt-2 flex items-center gap-2 text-[13px] text-[#525252] hover:text-[#161616] transition-colors"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 500,
+            color: '#8bacc8',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 150ms ease',
+            fontFamily: 'inherit',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(218,30,40,0.12)'
+            e.currentTarget.style.borderColor = 'rgba(218,30,40,0.25)'
+            e.currentTarget.style.color = '#ff6b6b'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+            e.currentTarget.style.color = '#8bacc8'
+          }}
         >
           <Icon.LogOut />
           Sign out
@@ -165,7 +347,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   )
 }
 
-// ── Main Layout ──────────────────────────────────────────────────────────
+// ── Main Layout ───────────────────────────────────────────────────────────────
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
@@ -177,72 +359,153 @@ export default function Layout() {
 
   // Lock body scroll when drawer open
   useEffect(() => {
-    if (drawerOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = drawerOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [drawerOpen])
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F7F8FA' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F7F8FA' }}>
 
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside
-        className="hidden lg:flex flex-col flex-shrink-0 bg-white border-r border-[#E0E4E8] overflow-y-auto"
-        style={{ width: '256px', zIndex: 30 }}
+        className="hidden lg:flex flex-col flex-shrink-0 overflow-y-auto"
+        style={{
+          width: '248px',
+          background: 'linear-gradient(180deg, #0d2137 0%, #102A43 40%, #0e2540 100%)',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
+          zIndex: 30,
+        }}
         aria-label="Sidebar"
       >
         <SidebarContent />
       </aside>
 
-      {/* ── Mobile sidebar drawer ────────────────────────────────────────── */}
+      {/* ── Mobile sidebar drawer ─────────────────────────────────────── */}
       {drawerOpen && (
         <>
           <div
-            className="sidebar-overlay lg:hidden"
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.5)',
+              zIndex: 40,
+              animation: 'lp-fadeIn 200ms ease',
+            }}
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <div className="sidebar-drawer lg:hidden">
+          <div
+            className="lg:hidden"
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, bottom: 0,
+              width: '248px',
+              background: 'linear-gradient(180deg, #0d2137 0%, #102A43 40%, #0e2540 100%)',
+              borderRight: '1px solid rgba(255,255,255,0.06)',
+              boxShadow: '4px 0 24px rgba(0,0,0,0.25)',
+              zIndex: 50,
+              overflowY: 'auto',
+              animation: 'slideIn 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
             <SidebarContent onClose={() => setDrawerOpen(false)} />
           </div>
         </>
       )}
 
       {/* ── Main column ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
 
         {/* Top bar */}
         <header
-          className="flex items-center justify-between px-4 lg:px-8 shrink-0 bg-white border-b border-[#E0E4E8]"
-          style={{ height: '64px', zIndex: 30 }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px 0 16px',
+            height: '60px',
+            flexShrink: 0,
+            background: '#FFFFFF',
+            borderBottom: '1px solid #E8ECF0',
+            boxShadow: '0 1px 4px rgba(16,42,67,0.06)',
+            zIndex: 30,
+          }}
         >
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Hamburger — mobile only */}
             <button
-              className="lg:hidden p-2 rounded text-[#525252] hover:text-[#161616] hover:bg-[#F3F5F7] transition-colors"
+              className="lg:hidden"
+              style={{
+                padding: '8px',
+                borderRadius: '6px',
+                background: 'none',
+                border: 'none',
+                color: '#525252',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu"
             >
               <Icon.Menu />
             </button>
-            {/* Platform name */}
-            <span className="text-sm font-medium" style={{ color: '#102A43' }}>
-              Predictive Infrastructure Intelligence
-            </span>
+
+            {/* Breadcrumb / Platform name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{
+                width: '22px',
+                height: '22px',
+                borderRadius: '5px',
+                background: 'linear-gradient(135deg, #0F62FE, #0050E6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#fff',
+                flexShrink: 0,
+              }}>
+                P
+              </div>
+              <span style={{
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#102A43',
+                letterSpacing: '-0.01em',
+              }}>
+                PRAGATI-AI
+              </span>
+              <span style={{ color: '#C1C7CD', fontSize: '12px' }} aria-hidden="true">/</span>
+              <span style={{ fontSize: '13px', color: '#697077' }}>
+                Predictive Infrastructure Intelligence
+              </span>
+            </div>
           </div>
+
+          {/* Right: Provenance badge */}
           <ProvenanceBadge />
         </header>
 
         {/* Scrollable page body */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-6">
+        <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 24px 32px' }}>
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* ── Keyframe animations (mobile drawer) ─────────────────────────── */}
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
+        }
+        @keyframes lp-fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
