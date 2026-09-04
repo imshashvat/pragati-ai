@@ -140,11 +140,11 @@ export default function LandingPage() {
           </a>
 
           <nav className="lp-nav-links" aria-label="Primary navigation">
-            <a href="#about"    className="lp-nav-link">About</a>
-            <a href="#sectors"  className="lp-nav-link">Sectors</a>
-            <a href="#process"  className="lp-nav-link">How It Works</a>
-            <a href="#statemap" className="lp-nav-link">State Map</a>
-            <a href="#ai"       className="lp-nav-link">Data &amp; AI</a>
+            <Link to="/about"        className="lp-nav-link">About</Link>
+            <Link to="/sectors"      className="lp-nav-link">Sectors</Link>
+            <Link to="/how-it-works" className="lp-nav-link">How It Works</Link>
+            <Link to="/state-map"    className="lp-nav-link">State Map</Link>
+            <Link to="/contact"      className="lp-nav-link">Contact</Link>
             <Link to="/login" className="lp-nav-cta" id="nav-sign-in">
               Officer Sign In
             </Link>
@@ -165,12 +165,12 @@ export default function LandingPage() {
 
         {menuOpen && (
           <nav className="lp-drawer" aria-label="Mobile navigation">
-            <a href="#about"    onClick={() => setMenuOpen(false)} className="lp-drawer-link">About</a>
-            <a href="#sectors"  onClick={() => setMenuOpen(false)} className="lp-drawer-link">Sectors</a>
-            <a href="#process"  onClick={() => setMenuOpen(false)} className="lp-drawer-link">How It Works</a>
-            <a href="#statemap" onClick={() => setMenuOpen(false)} className="lp-drawer-link">State Map</a>
-            <a href="#ai"       onClick={() => setMenuOpen(false)} className="lp-drawer-link">Data &amp; AI</a>
-            <Link to="/login"  onClick={() => setMenuOpen(false)} className="lp-drawer-cta">
+            <Link to="/about"        onClick={() => setMenuOpen(false)} className="lp-drawer-link">About</Link>
+            <Link to="/sectors"      onClick={() => setMenuOpen(false)} className="lp-drawer-link">Sectors</Link>
+            <Link to="/how-it-works" onClick={() => setMenuOpen(false)} className="lp-drawer-link">How It Works</Link>
+            <Link to="/state-map"    onClick={() => setMenuOpen(false)} className="lp-drawer-link">State Map</Link>
+            <Link to="/contact"      onClick={() => setMenuOpen(false)} className="lp-drawer-link">Contact</Link>
+            <Link to="/login"        onClick={() => setMenuOpen(false)} className="lp-drawer-cta">
               Officer Sign In
             </Link>
           </nav>

@@ -18,6 +18,13 @@ import DataProvenancePage from './pages/DataProvenancePage'
 import AdminPage          from './pages/AdminPage'
 import NotFoundPage       from './pages/NotFoundPage'
 
+// Public info pages
+import AboutPage        from './pages/AboutPage'
+import SectorsPage      from './pages/SectorsPage'
+import HowItWorksPage   from './pages/HowItWorksPage'
+import StateMapPage     from './pages/StateMapPage'
+import ContactPage      from './pages/ContactPage'
+
 // ── Route guards ───────────────────────────────────────────────────────────
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -46,6 +53,13 @@ function AppRoutes() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
+
+      {/* Public info pages — always accessible */}
+      <Route path="/about"        element={<AboutPage />} />
+      <Route path="/sectors"      element={<SectorsPage />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
+      <Route path="/state-map"    element={<StateMapPage />} />
+      <Route path="/contact"      element={<ContactPage />} />
 
       {/* Protected shell */}
       <Route
