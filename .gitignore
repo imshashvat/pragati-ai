@@ -63,15 +63,17 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ML trained model binaries (tracked via .gitkeep)
-# Binary model files — large, never commit to git
+# ML trained model binaries
+# Large formats are ignored; small PRAGATI-AI model files (≤1 MB) are tracked.
 ml/artifacts/*.joblib
-ml/artifacts/*.pkl
 ml/artifacts/*.onnx
-ml/artifacts/*.cbm
 ml/artifacts/*.h5
 ml/artifacts/*.pt
 ml/artifacts/*.pth
+# These specific model files are small enough to commit:
+!ml/artifacts/model_3_schedule_delay.cbm
+!ml/artifacts/model_3_schedule_config.pkl
+!ml/artifacts/model_3_feature_importance.pkl
 !ml/artifacts/.gitkeep
 !ml/notebook/.gitkeep
 # model_run_metrics.json is small JSON → intentionally committed for UI display
