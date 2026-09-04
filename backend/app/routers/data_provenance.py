@@ -19,7 +19,7 @@ from app.deps import require_role
 from app.models.ingestion_log import IngestionLog, User
 from app.models.prediction import Prediction
 from app.models.snapshot import ProjectSnapshot
-from app.services.prediction import MODEL_LOADED, get_model_status
+from app.services.prediction import get_model_status
 
 router = APIRouter(tags=["data-provenance"])
 
@@ -32,10 +32,10 @@ def data_provenance(
     """
     Returns:
         last_sync      — timestamp of most recent successful ingestion
-        source         — "live" if ML model is loaded (model ready for scoring),
+        source         — "live" if CatBoost ML model is loaded and active,
                          "demo" if no model loaded (baseline heuristics only)
         data_quality_flags — projects with data_quality_flag > 0
-        model_loaded   — from prediction service
+        model_loaded   — from prediction service (live runtime state)
         model_version  — from prediction service
     """
     # Last successful ingestion
@@ -46,26 +46,16 @@ def data_provenance(
         .first()
     )
 
-    # Determine source label:
-    # "live"  = CatBoost model IS loaded (will score new predictions with ML)
-    # "demo"  = no model; all scoring is baseline heuristics
-    #
-    # We also check DB for catboost-scored predictions (model_mode = "catboost")
-    # to distinguish "model loaded but data is all legacy-seeded" from "fully live".
-    catboost_count = (
-        db.query(Prediction)
-        .filter(Prediction.model_mode == "catboost")
-        .count()
-    )
+    # ── Source detection ───────────────────────────────────────────────────────
+    # IMPORTANT: Do NOT import MODEL_LOADED directly — it's a primitive bool
+    # copied at import time and never updates after _load_models() runs.
+    # Always call get_model_status() to read the live runtime value.
+    model_status = get_model_status()
+    model_is_loaded: bool = model_status.get("model_loaded", False)
 
-    if MODEL_LOADED and catboost_count > 0:
-        source = "live"
-    elif MODEL_LOADED:
-        # Model is loaded but existing data was seeded before model was available.
-        # Still report as "live" — the model IS active for all new predictions.
-        source = "live"
-    else:
-        source = "demo"
+    # source = "live"  → CatBoost model is loaded (will score new predictions)
+    # source = "demo"  → no model; scoring uses baseline heuristics
+    source = "live" if model_is_loaded else "demo"
 
     # Data quality flags (projects with any incomplete snapshot)
     quality_flags = []
@@ -83,8 +73,6 @@ def data_provenance(
             "flag_type": "incomplete_fields",
             "detail": f"{s.data_quality_flag} field(s) missing",
         })
-
-    model_status = get_model_status()
 
     return {
         "last_sync": last_ingest.timestamp.isoformat() if last_ingest else None,
