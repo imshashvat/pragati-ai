@@ -347,9 +347,9 @@ export default function ProjectDetailPage() {
           Why Is This Project At Risk?
         </h2>
         <p className="text-[12px] mb-4" style={{ color: '#697077' }}>
-          {detail.model_mode === 'demo'
-            ? 'Illustrative risk drivers (not real SHAP values — place ML artifacts in ml/artifacts/ to activate)'
-            : 'Top contributing factors from SHAP feature attribution'}
+          {drivers.length > 0
+            ? 'Top contributing factors from SHAP feature attribution'
+            : 'No risk driver data available for this project.'}
         </p>
         {riskDrivers.length === 0 && drivers.length === 0 ? (
           <div className="empty-state py-8">

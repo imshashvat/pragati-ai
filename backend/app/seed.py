@@ -201,14 +201,19 @@ def seed(db: Session) -> None:
         for s in snaps:
             db.add(ProjectSnapshot(**s, ingestion_id=ingest_log.ingestion_id))
 
+        from app.services.prediction import get_model_status
+        _ms = get_model_status()
+        _mode    = "catboost" if _ms.get("model_loaded") else "demo"
+        _version = _ms.get("model_version") if _ms.get("model_loaded") else None
+
         pred = Prediction(
             project_id=pid,
             report_month="2026-02",
             cost_risk=cost_risk,
             delay_risk=delay_risk,
             overall_risk=overall_risk,
-            model_mode="demo",   # ← explicitly "demo" per Q2
-            model_version=None,
+            model_mode=_mode,
+            model_version=_version,
         )
         db.add(pred)
         db.flush()

@@ -24,12 +24,11 @@ const Icons = {
 interface NavItem { to: string; label: string; icon: React.FC; roles: string[] }
 
 const NAV: NavItem[] = [
-  { to: '/dashboard',       label: 'Portfolio',        icon: Icons.Dashboard, roles: ['officer','senior_official','admin'] },
-  { to: '/projects',        label: 'Projects',          icon: Icons.Folder,    roles: ['officer','senior_official','admin'] },
-  { to: '/alerts',          label: 'Alerts',            icon: Icons.Bell,      roles: ['officer','senior_official','admin'] },
-  { to: '/model',           label: 'Model Performance', icon: Icons.Chart,     roles: ['officer','senior_official','admin'] },
-  { to: '/data-provenance', label: 'Data Provenance',   icon: Icons.DB,        roles: ['officer','senior_official','admin'] },
-  { to: '/admin',           label: 'Admin',             icon: Icons.Settings,  roles: ['admin'] },
+  { to: '/dashboard',       label: 'Portfolio',      icon: Icons.Dashboard, roles: ['officer','senior_official','admin'] },
+  { to: '/projects',        label: 'Projects',       icon: Icons.Folder,    roles: ['officer','senior_official','admin'] },
+  { to: '/alerts',          label: 'Alerts',         icon: Icons.Bell,      roles: ['officer','senior_official','admin'] },
+  { to: '/data-provenance', label: 'Data Provenance',icon: Icons.DB,        roles: ['officer','senior_official','admin'] },
+  { to: '/admin',           label: 'Admin',          icon: Icons.Settings,  roles: ['admin'] },
 ]
 
 const ROLE_LABELS: Record<string, string> = {

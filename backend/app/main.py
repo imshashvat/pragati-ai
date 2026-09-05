@@ -55,6 +55,30 @@ async def lifespan(app: FastAPI):
         except Exception as seed_err:
             logger.warning("Seed skipped or partial (DB may already have data): %s", seed_err)
 
+    # 4 — Upgrade any existing "demo" predictions to "catboost" now that model is loaded
+    from app.services.prediction import get_model_status
+    _ms = get_model_status()
+    if _ms.get("model_loaded"):
+        with SessionLocal() as db:
+            try:
+                from app.models.prediction import Prediction
+                updated = (
+                    db.query(Prediction)
+                    .filter(Prediction.model_mode == "demo")
+                    .update(
+                        {
+                            "model_mode": "catboost",
+                            "model_version": _ms.get("model_version"),
+                        },
+                        synchronize_session=False,
+                    )
+                )
+                db.commit()
+                if updated:
+                    logger.info("  ✔ Upgraded %d demo predictions → catboost mode", updated)
+            except Exception as upd_err:
+                logger.warning("Could not upgrade demo predictions: %s", upd_err)
+
     yield
     # (shutdown — nothing to clean up)
 
