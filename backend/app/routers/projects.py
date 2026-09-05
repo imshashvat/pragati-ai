@@ -220,14 +220,83 @@ def get_recommendations(
         # continuation_suitability: simple transparent inverse-of-risk score
         continuation_suitability = round((1 - pred.overall_risk) * 100, 1)
 
+        # ── Contextual insight — each project gets a unique reason ────────────
+        # Rules are evaluated in priority order; first match wins.
+        cr = pred.cost_risk      # 0–1
+        dr = pred.delay_risk     # 0–1
+        or_ = pred.overall_risk  # 0–1
+        suit = continuation_suitability  # 0–100
         top_drv = driver_map.get(pred.id)
-        if top_drv:
-            if top_drv.direction == "decreases_risk":
-                top_reason = f"Why this project is a safe bet: {top_drv.label}"
+        drv_label = top_drv.label if top_drv else None
+
+        if suit >= 75:
+            top_reason = (
+                "Excellent execution profile — low risk across all dimensions; "
+                "strong candidate for continued government funding."
+            )
+        elif suit >= 60:
+            if cr < 0.35 and dr < 0.35:
+                top_reason = (
+                    "Well-managed project: both cost and schedule adherence are solid. "
+                    "Minor monitoring recommended."
+                )
+            elif cr < dr - 0.15:
+                top_reason = (
+                    f"Cost discipline is good (Cost Risk {round(cr*100)}%). "
+                    f"Some schedule slippage detected — timeline recovery plan advised."
+                )
+            elif dr < cr - 0.15:
+                top_reason = (
+                    f"Schedule adherence is commendable (Delay Risk {round(dr*100)}%). "
+                    f"Budget utilisation trending above plan — cost review recommended."
+                )
             else:
-                top_reason = f"Main risk factor to watch: {top_drv.label}"
+                top_reason = (
+                    "Balanced risk profile at an acceptable level. "
+                    "Eligible for continuation with standard quarterly review."
+                )
+        elif suit >= 40:
+            if cr > dr + 0.20:
+                top_reason = (
+                    f"Primary concern: cost overrun (Cost Risk {round(cr*100)}%). "
+                    "Physical progress appears on track. Revised cost estimate warranted."
+                )
+            elif dr > cr + 0.20:
+                top_reason = (
+                    f"Primary concern: schedule slippage (Delay Risk {round(dr*100)}%). "
+                    "Budget absorption is adequate. Milestone recovery plan required."
+                )
+            elif drv_label:
+                top_reason = f"Moderate risk — key driver: {drv_label}. Targeted corrective action needed."
+            else:
+                top_reason = (
+                    f"Moderate overall risk ({round(or_*100)}%). "
+                    "Both cost and schedule metrics need improvement before next review."
+                )
         else:
-            top_reason = "No driver data available"
+            # High risk — suit < 40
+            if cr > 0.80 and dr > 0.80:
+                top_reason = (
+                    f"Critical dual risk: Cost {round(cr*100)}% · Delay {round(dr*100)}%. "
+                    "Immediate corrective action and ministerial review recommended."
+                )
+            elif cr > dr + 0.15:
+                top_reason = (
+                    f"Cost overrun is the dominant risk ({round(cr*100)}%). "
+                    "Physical progress may not justify expenditure — audit advised."
+                )
+            elif dr > cr + 0.15:
+                top_reason = (
+                    f"Severe schedule delay ({round(dr*100)}%) is the primary concern. "
+                    "Milestone targets missed — implementing agency escalation needed."
+                )
+            elif drv_label:
+                top_reason = f"High risk — leading driver: {drv_label}. Escalation recommended."
+            else:
+                top_reason = (
+                    f"High overall risk ({round(or_*100)}%). "
+                    "Comprehensive project review before further disbursement advised."
+                )
 
         results.append({
             "project_id": proj.project_id,
