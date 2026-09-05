@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { login } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
+import PublicLayout from '../components/PublicLayout'
 
 export default function LoginPage() {
   usePageTitle('Sign In')
@@ -44,7 +45,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#F7F8FA' }}>
+    <PublicLayout>
+    <div className="min-h-screen flex" style={{ background: '#F7F8FA', minHeight: 'calc(100vh - 200px)' }}>
 
       {/* ── Left panel (institutional context) — hidden on mobile ─────── */}
       <div
@@ -207,5 +209,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </PublicLayout>
   )
 }

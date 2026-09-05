@@ -239,9 +239,51 @@ export default function Layout() {
 
         {/* Page content */}
         <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 40px' }}>
+          <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 0' }}>
             <Outlet />
           </div>
+
+          {/* ── Compact institutional footer ─────────────────────────────── */}
+          <footer style={{
+            marginTop: 40,
+            padding: '20px 24px',
+            borderTop: '1px solid #E8ECF0',
+            background: '#fff',
+          }}>
+            <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              {/* Left — brand */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#102A43', letterSpacing: '.02em' }}>PRAGATI-AI · PAIMANA Platform</span>
+                <span style={{ fontSize: 11, color: '#8D8D8D' }}>Ministry of Statistics &amp; Programme Implementation · Government of India</span>
+              </div>
+
+              {/* Centre — nav links */}
+              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                {[
+                  { href: '/about',        label: 'About' },
+                  { href: '/sectors',      label: 'Sectors' },
+                  { href: '/how-it-works', label: 'How It Works' },
+                  { href: '/state-map',    label: 'State Map' },
+                  { href: '/contact',      label: 'Contact Us' },
+                ].map(({ href, label }) => (
+                  <a key={href} href={href}
+                    style={{ fontSize: 12, color: '#525252', textDecoration: 'none', transition: 'color 140ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#0F62FE')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#525252')}
+                  >{label}</a>
+                ))}
+              </div>
+
+              {/* Right — contact */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <a href="mailto:pragati-ai@mospi.gov.in"
+                  style={{ fontSize: 11, color: '#0F62FE', textDecoration: 'none' }}>
+                  pragati-ai@mospi.gov.in
+                </a>
+                <span style={{ fontSize: 11, color: '#8D8D8D' }}>© 2026 PRAGATI-AI · MoSPI</span>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
 
