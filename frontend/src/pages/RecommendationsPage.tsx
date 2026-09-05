@@ -14,9 +14,11 @@ type SortKey = keyof RecommendationItem
 type SortDir = 'asc' | 'desc'
 
 function fmt(n: number) { return (n * 100).toFixed(0) + '%' }
+// original_cost is stored in Crores in the DB — match ProjectDetailPage formatting
 function fmtBudget(n: number | null) {
   if (n == null) return '—'
-  return '₹' + (n / 1e7).toFixed(2) + ' Cr'
+  if (n === 0) return '₹0 Cr'
+  return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Cr'
 }
 
 const SECTOR_OPTIONS = ['', 'Railways', 'Roads', 'Power', 'Irrigation', 'Urban', 'Telecom', 'Health']

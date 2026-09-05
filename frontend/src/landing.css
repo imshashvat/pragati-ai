@@ -85,7 +85,9 @@
   align-items: center;
   justify-content: space-between;
   height: 64px;
-  gap: 24px;
+  gap: 16px;
+  overflow: hidden;  /* prevent horizontal blowout */
+  padding: 0 24px;
 }
 
 /* Logo */
@@ -1072,9 +1074,14 @@
 
   /* Compact the navbar inner row */
   .lp-nav-inner {
-    padding: 0 16px;
-    height: 54px;
+    padding: 0 12px;
+    height: 52px;
+    gap: 8px;
+    overflow: hidden;
   }
+
+  /* Hide timestamp in provenance badge on mobile */
+  .provenance-label { display: none !important; }
 
   /* On tablets: hide banner2 and banner4 */
   .lp-hero { min-height: 500px; }

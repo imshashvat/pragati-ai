@@ -1,5 +1,6 @@
 // src/components/ProvenanceBadge.tsx
-// Quiet, informational — warns about demo data without shouting
+// Shows Live ML / Demo Mode badge in the top navbar.
+// Uses only inline styles — no Tailwind dependency.
 
 import React, { useEffect, useState } from 'react'
 import { getProvenance, type ProvenanceData } from '../api/dashboard'
@@ -16,21 +17,37 @@ export default function ProvenanceBadge() {
   const isDemo = data.source === 'demo'
 
   return (
-    <div className="flex items-center gap-3">
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {/* Badge pill */}
       <span
-        className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded ${isDemo ? 'prov-demo text-[#8E6A00]' : 'prov-live text-[#198038]'}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 11, fontWeight: 600,
+          padding: '4px 9px', borderRadius: 20,
+          background: isDemo ? '#FFF8E1' : '#DEFBE6',
+          color: isDemo ? '#8E6A00' : '#198038',
+          border: `1px solid ${isDemo ? '#F1C21B' : '#24A148'}`,
+          whiteSpace: 'nowrap', flexShrink: 0,
+          fontFamily: "'Inter', sans-serif",
+        }}
         title={isDemo
           ? 'No ML model loaded — predictions use baseline heuristics'
           : 'CatBoost ML model loaded — live scoring active'}
       >
-        <span
-          className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: isDemo ? '#F1C21B' : '#198038' }}
-        />
-        {isDemo ? 'Demo Mode' : 'Live ML'}
+        <span style={{
+          display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+          backgroundColor: isDemo ? '#F1C21B' : '#198038',
+          flexShrink: 0,
+        }} />
+        {isDemo ? 'Demo' : 'Live ML'}
       </span>
+
+      {/* Timestamp — hidden on narrow screens via CSS class */}
       {data.last_sync && (
-        <span className="hidden sm:block text-[12px]" style={{ color: '#8D8D8D' }}>
+        <span
+          className="provenance-label"
+          style={{ fontSize: 11, color: '#8D8D8D', whiteSpace: 'nowrap' }}
+        >
           {new Date(data.last_sync).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
         </span>
       )}
