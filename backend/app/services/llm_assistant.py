@@ -67,8 +67,9 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
             {"role": "user",   "content": _build_user_message(project_data, question)},
         ],
         "max_tokens": 512,
-        "temperature": 0.3,   # low temperature — factual, not creative
+        "temperature": 0.3,
         "stream": False,
+        "reasoning_effort": "low",   # Kimi K3 is a reasoning model; 'low' = faster responses
     }
 
     headers = {
@@ -79,8 +80,13 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
 
     for model in (PRIMARY_MODEL, FALLBACK_MODEL):
         payload["model"] = model
+        # Remove reasoning_effort for non-reasoning fallback models
+        if model == FALLBACK_MODEL:
+            payload.pop("reasoning_effort", None)
         try:
-            with httpx.Client(timeout=10.0) as client:
+            # Kimi K3 is a reasoning model — needs a longer read timeout (up to 90s)
+            timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)
+            with httpx.Client(timeout=timeout) as client:
                 resp = client.post(NVIDIA_URL, json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
