@@ -2,15 +2,195 @@
 // Executive Intelligence Dossier — the flagship page
 // Layout: header → assessment → risk timeline → why at risk → action panel
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts'
-import { getProject, getProjectDrivers, type ProjectDetail, type Driver } from '../api/projects'
+import { getProject, getProjectDrivers, askAssistant, type ProjectDetail, type Driver } from '../api/projects'
 import RiskBadge, { riskToSeverity } from '../components/RiskBadge'
 import { usePageTitle } from '../hooks/usePageTitle'
+
+// ── AI Assistant Widget ───────────────────────────────────────────────────
+interface Message { role: 'assistant' | 'user'; text: string }
+
+function AIAssistantWidget({ projectId }: { projectId: string }) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom after each new message
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // On mount: auto-fetch a plain-language summary (question = null)
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    askAssistant(projectId, null)
+      .then(answer => {
+        if (!cancelled) setMessages([{ role: 'assistant', text: answer }])
+      })
+      .catch(() => {
+        if (!cancelled)
+          setMessages([{ role: 'assistant', text: 'Assistant unavailable — showing computed data only.' }])
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  async function handleAsk() {
+    const q = input.trim()
+    if (!q || loading) return
+    setInput('')
+    setMessages(prev => [...prev, { role: 'user', text: q }])
+    setLoading(true)
+    try {
+      const answer = await askAssistant(projectId, q)
+      setMessages(prev => [...prev, { role: 'assistant', text: answer }])
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', text: 'Assistant unavailable — please try again.' }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="card" style={{ borderColor: '#E0E4E8', padding: '20px 24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <span style={{
+          fontSize: 16, lineHeight: 1,
+          background: 'linear-gradient(135deg, #0F62FE, #8A3FFC)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+        }}>✦</span>
+        <h2 style={{ fontSize: 14, fontWeight: 700, color: '#161616', margin: 0 }}>
+          AI Risk Explainer
+        </h2>
+        <span style={{
+          marginLeft: 'auto', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+          textTransform: 'uppercase', color: '#6929C4',
+          background: '#F6F2FF', padding: '2px 8px', borderRadius: 20,
+          border: '1px solid #D4BBFF',
+        }}>Kimi K3 · NVIDIA NIM</span>
+      </div>
+
+      {/* Message list */}
+      <div style={{
+        maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+        gap: 12, marginBottom: 16,
+        paddingRight: 4,
+      }}>
+        {messages.length === 0 && loading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: '#697077' }}>Generating summary</span>
+            <span style={{ display: 'inline-flex', gap: 3 }}>
+              {[0, 1, 2].map(i => (
+                <span key={i} style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: '#0F62FE',
+                  animation: `ai-bounce 1.2s ${i * 0.2}s infinite ease-in-out`,
+                  display: 'inline-block',
+                }} />
+              ))}
+            </span>
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <div key={i}>
+            {msg.role === 'user' ? (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{
+                  background: '#EDF5FF', color: '#0043CE',
+                  fontSize: 13, padding: '8px 14px', borderRadius: '12px 12px 0 12px',
+                  maxWidth: '80%', lineHeight: 1.5,
+                }}>
+                  {msg.text}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  background: '#F4F4F4', color: '#161616',
+                  fontSize: 13, padding: '10px 14px', borderRadius: '0 12px 12px 12px',
+                  maxWidth: '90%', lineHeight: 1.6,
+                }}>
+                  {msg.text}
+                </div>
+                <p style={{
+                  fontSize: 10, color: '#8D8D8D', marginTop: 4, marginLeft: 4,
+                  fontStyle: 'italic', letterSpacing: '0.01em',
+                }}>
+                  AI-generated explanation, not a new prediction.
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Loading indicator for follow-up questions */}
+        {loading && messages.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{
+                width: 6, height: 6, borderRadius: '50%', background: '#8D8D8D',
+                animation: `ai-bounce 1.2s ${i * 0.2}s infinite ease-in-out`,
+                display: 'inline-block',
+              }} />
+            ))}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input row */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAsk()}
+          placeholder="Ask about this project's risk data…"
+          disabled={loading}
+          style={{
+            flex: 1, fontSize: 13, padding: '8px 12px',
+            border: '1px solid #C6C6C6', borderRadius: 6,
+            background: loading ? '#F4F4F4' : '#fff',
+            color: '#161616', outline: 'none', fontFamily: 'inherit',
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={e => { e.target.style.borderColor = '#0F62FE' }}
+          onBlur={e => { e.target.style.borderColor = '#C6C6C6' }}
+        />
+        <button
+          onClick={handleAsk}
+          disabled={loading || !input.trim()}
+          style={{
+            fontSize: 13, fontWeight: 600, padding: '8px 18px',
+            background: loading || !input.trim() ? '#C6C6C6' : '#0F62FE',
+            color: '#fff', border: 'none', borderRadius: 6,
+            cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', transition: 'background 0.15s',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Ask
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes ai-bounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+          40% { transform: translateY(-4px); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function riskColor(r: number) {
@@ -365,6 +545,9 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ── AI Assistant widget — narrates pre-computed data only ─── */}
+      <AIAssistantWidget projectId={projectId!} />
 
       {/* Recommended Action panel */}
       <div className="card" style={{ borderColor: '#E0E4E8' }}>

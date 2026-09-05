@@ -99,3 +99,15 @@ export async function getRecommendations(params?: {
   const res = await client.get<RecommendationItem[]>('/projects/recommendations', { params })
   return res.data
 }
+
+/** POST /projects/{id}/assistant — LLM narrates pre-computed risk data only. */
+export async function askAssistant(
+  projectId: string,
+  question: string | null,
+): Promise<string> {
+  const res = await client.post<{ answer: string }>(
+    `/projects/${projectId}/assistant`,
+    { question },
+  )
+  return res.data.answer
+}

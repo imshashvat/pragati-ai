@@ -9,7 +9,8 @@ GET /projects/{id}/drivers — SHAP driver list
 import math
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -21,7 +22,12 @@ from app.models.prediction import Prediction, RiskDriver
 from app.models.project import Project
 from app.models.snapshot import ProjectSnapshot
 from app.services.explainability import get_drivers_for_project
+from app.services.llm_assistant import explain_project
 from app.services.risk_scoring import compute_priority_score
+
+
+class AssistantRequest(BaseModel):
+    question: Optional[str] = None
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -387,6 +393,78 @@ def get_project_drivers(
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
     return get_drivers_for_project(db, project_id)
+
+
+@router.post("/{project_id}/assistant")
+def ask_assistant(
+    project_id: str,
+    body: AssistantRequest,
+    user: User = Depends(require_role("officer", "senior_official", "admin")),
+    db: Session = Depends(get_db),
+):
+    """
+    POST /projects/{project_id}/assistant
+    Body: { "question": string | null }
+    Returns: { "answer": string }
+
+    Calls the LLM assistant to narrate pre-computed risk data.
+    Never generates its own risk score. Falls back gracefully if LLM unavailable.
+    """
+    proj = db.get(Project, project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Fetch latest prediction
+    pred = (
+        db.query(Prediction)
+        .filter(Prediction.project_id == project_id)
+        .order_by(Prediction.created_at.desc())
+        .first()
+    )
+
+    # Fetch SHAP drivers
+    drivers_raw = get_drivers_for_project(db, project_id)
+    drivers = drivers_raw.get("drivers", []) if isinstance(drivers_raw, dict) else []
+
+    # Fetch trend (last 6 snapshots)
+    snaps = (
+        db.query(ProjectSnapshot)
+        .filter(ProjectSnapshot.project_id == project_id)
+        .order_by(ProjectSnapshot.report_month.desc())
+        .limit(6)
+        .all()
+    )
+    trend = [
+        {"month": str(s.report_month), "cost_growth": s.revised_cost, "expenditure": s.expenditure}
+        for s in reversed(snaps)
+    ]
+
+    # Build project_data dict — only pre-computed values, no invented numbers
+    project_data = {
+        "project_id": proj.project_id,
+        "name": proj.name,
+        "sector": proj.sector,
+        "ministry": proj.ministry,
+        "original_cost_cr": proj.original_cost,
+        "overall_risk": round(pred.overall_risk * 100, 1) if pred else None,
+        "cost_risk": round(pred.cost_risk * 100, 1) if pred else None,
+        "delay_risk": round(pred.delay_risk * 100, 1) if pred else None,
+        "model_mode": pred.model_mode if pred else None,
+        "top_shap_drivers": [
+            {
+                "rank": d.get("rank"),
+                "label": d.get("label"),
+                "impact_pts": d.get("impact_pts"),
+                "direction": d.get("direction"),
+            }
+            for d in drivers[:5]
+        ],
+        "trend_last_6_periods": trend,
+    }
+
+    answer = explain_project(project_data, body.question)
+    return {"answer": answer}
+
 
 def _urgency(alert_status: Optional[str]) -> float:
     if alert_status in ("escalated",):
