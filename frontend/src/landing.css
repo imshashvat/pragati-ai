@@ -163,7 +163,7 @@
 }
 .lp-nav-cta:hover { background: #0353E9; text-decoration: none; }
 
-/* Hamburger */
+/* Hamburger — hidden on desktop, shown on mobile */
 .lp-hamburger {
   display: none;
   background: transparent;
@@ -175,8 +175,29 @@
   align-items: center;
   justify-content: center;
   transition: background 0.15s;
+  flex-shrink: 0;
 }
 .lp-hamburger:hover { background: #F3F5F7; }
+
+/* Mobile controls wrapper — rightSlot items + hamburger on mobile */
+.lp-mobile-controls {
+  display: none;          /* hidden on desktop — desktop shows via .lp-nav-links */
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* The rightSlot items inside mobile top bar */
+.lp-mobile-right-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Auth row inside mobile drawer (Sign Out / Sign In) */
+.lp-drawer-auth-row {
+  margin-top: 12px;
+}
 
 /* Mobile drawer */
 .lp-drawer {
@@ -187,6 +208,9 @@
   flex-direction: column;
   padding: 12px 20px 20px;
   gap: 2px;
+  /* Ensure drawer sits above sidebar slide-over on mobile */
+  position: relative;
+  z-index: 100;
 }
 .lp-drawer-link {
   color: #525252;
@@ -198,6 +222,7 @@
   transition: color 0.15s;
 }
 .lp-drawer-link:hover { color: #161616; text-decoration: none; }
+.lp-drawer-link--active { color: #0F62FE; font-weight: 600; }
 .lp-drawer-cta {
   display: block;
   margin-top: 14px;
@@ -211,6 +236,12 @@
   text-decoration: none;
 }
 .lp-drawer-cta:hover { background: #0353E9; text-decoration: none; }
+
+/* Hide logo subtitle on very small screens */
+.lp-logo-sub--hide-xs {
+  display: inline;
+}
+
 
 /* ── SECTOR TICKER ─────────────────────────────────────────── */
 .lp-ticker {
@@ -1034,8 +1065,16 @@
 }
 
 @media (max-width: 768px) {
+  /* Hide desktop nav links, show mobile controls */
   .lp-nav-links { display: none; }
+  .lp-mobile-controls { display: flex; }
   .lp-hamburger { display: inline-flex; }
+
+  /* Compact the navbar inner row */
+  .lp-nav-inner {
+    padding: 0 16px;
+    height: 54px;
+  }
 
   /* On tablets: hide banner2 and banner4 */
   .lp-hero { min-height: 500px; }
@@ -1073,6 +1112,17 @@
   .lp-metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .lp-mock-row { grid-template-columns: 100px 1fr 44px; }
   .lp-util-left > span { display: none; }
+
+  /* Hide long logo subtitle on very narrow phones */
+  .lp-logo-sub--hide-xs { display: none; }
+
+  /* Compact logo text on phones */
+  .lp-logo-name { font-size: 0.8rem; }
+  .lp-logo-divider { display: none; }
+  .lp-mospi-logo { height: 28px; }
+
+  /* Mobile right slot — hide ProvenanceBadge text, keep icon */
+  .lp-mobile-right-slot .provenance-label { display: none; }
 }
 
 /* ================================================================

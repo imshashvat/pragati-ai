@@ -158,33 +158,31 @@ export default function Layout() {
 
   const isDesktop = windowW >= BREAKPOINT
 
-  // Mobile hamburger button shown inside the PublicNavbar's rightSlot on mobile
-  const mobileMenuBtn = !isDesktop ? (
-    <button
-      id="btn-sidebar-hamburger"
-      onClick={() => setDrawerOpen(v => !v)}
-      aria-label={drawerOpen ? 'Close app menu' : 'Open app menu'}
-      style={{
-        background: 'none', border: '1px solid rgba(12,68,124,.2)',
-        borderRadius: 6, cursor: 'pointer', color: '#0C447C',
-        padding: '5px 8px', display: 'flex', alignItems: 'center', lineHeight: 0,
-        transition: 'background 140ms',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#EDF5FF')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-    >
-      {drawerOpen ? <Icons.X /> : <Icons.Menu />}
-    </button>
-  ) : null
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#F7F8FA', fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── Full MoSPI top navbar ──────────────────────────────────────────── */}
       <PublicNavbar
         rightSlot={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {mobileMenuBtn}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Sidebar hamburger — mobile only, opens the dark app nav */}
+            {!isDesktop && (
+              <button
+                id="btn-sidebar-hamburger"
+                onClick={() => setDrawerOpen(v => !v)}
+                aria-label={drawerOpen ? 'Close app navigation' : 'Open app navigation'}
+                title="App navigation"
+                style={{
+                  background: drawerOpen ? '#EDF5FF' : 'none',
+                  border: '1px solid rgba(12,68,124,.2)',
+                  borderRadius: 6, cursor: 'pointer', color: '#0C447C',
+                  padding: '5px 8px', display: 'flex', alignItems: 'center', lineHeight: 0,
+                  transition: 'background 140ms',
+                }}
+              >
+                {drawerOpen ? <Icons.X /> : <Icons.Menu />}
+              </button>
+            )}
             <ProvenanceBadge />
             <button
               id="btn-topnav-logout"
@@ -204,6 +202,19 @@ export default function Layout() {
               Sign Out
             </button>
           </div>
+        }
+        mobileAuthSlot={
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', padding: '12px', marginTop: 4,
+              background: 'rgba(218,30,40,.08)', border: '1px solid rgba(218,30,40,.25)',
+              borderRadius: 6, color: '#DA1E28', fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+            }}
+          >
+            Sign Out
+          </button>
         }
       />
 
