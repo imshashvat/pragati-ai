@@ -133,8 +133,16 @@ const BREAKPOINT = 900 // px — sidebar visible above this width
 
 export default function Layout() {
   const location = useLocation()
+  const navigate  = useNavigate()
+  const { clearAuth } = useAuth()
   const [windowW,     setWindowW]     = useState(window.innerWidth)
   const [drawerOpen,  setDrawerOpen]  = useState(false)
+
+  async function handleLogout() {
+    try { await logout() } catch { /**/ }
+    clearAuth()
+    navigate('/login')
+  }
 
   // Track window width to show/hide sidebar
   useEffect(() => {
