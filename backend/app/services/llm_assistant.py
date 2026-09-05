@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 # Do NOT read the key at module-import time — main.py calls load_dotenv() first,
 # but modules are imported before that. Read lazily inside explain_project().
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-PRIMARY_MODEL = "moonshotai/kimi-k3"
-FALLBACK_MODEL = "meta/llama-3.1-8b-instruct"
+PRIMARY_MODEL = "meta/llama-3.3-70b-instruct"   # fast (~2-5s), high quality
+FALLBACK_MODEL = "meta/llama-3.1-8b-instruct"   # even faster fallback
 
 SYSTEM_PROMPT = """You are a read-only risk-data explainer for PRAGATI-AI, 
 the Government of India's infrastructure project monitoring platform.
@@ -69,7 +69,6 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
         "max_tokens": 512,
         "temperature": 0.3,
         "stream": False,
-        "reasoning_effort": "low",   # Kimi K3 is a reasoning model; 'low' = faster responses
     }
 
     headers = {
@@ -80,12 +79,8 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
 
     for model in (PRIMARY_MODEL, FALLBACK_MODEL):
         payload["model"] = model
-        # Remove reasoning_effort for non-reasoning fallback models
-        if model == FALLBACK_MODEL:
-            payload.pop("reasoning_effort", None)
         try:
-            # Kimi K3 is a reasoning model — needs a longer read timeout (up to 90s)
-            timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)
+            timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
             with httpx.Client(timeout=timeout) as client:
                 resp = client.post(NVIDIA_URL, json=payload, headers=headers)
 
