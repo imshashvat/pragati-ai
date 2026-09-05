@@ -7,6 +7,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { logout } from '../api/auth'
 import ProvenanceBadge from './ProvenanceBadge'
+import PublicNavbar from './PublicNavbar'
 
 // ── SVG Icons (pure inline) ───────────────────────────────────────────────────
 const Icons = {
@@ -195,47 +196,31 @@ export default function Layout() {
       {/* ── Main column ──────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
 
-        {/* Top bar */}
-        <header style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 24px 0 16px', height: 60, flexShrink: 0,
-          background: '#fff', borderBottom: '1px solid #E8ECF0',
-          boxShadow: '0 1px 4px rgba(16,42,67,.06)', zIndex: 30,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-
-            {/* Hamburger — always visible on mobile (<900px), hidden on desktop */}
-            {!isDesktop && (
+        {/* Top bar — full MoSPI navbar */}
+        <PublicNavbar
+          rightSlot={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ProvenanceBadge />
               <button
-                id="btn-hamburger"
-                onClick={() => setDrawerOpen(v => !v)}
-                aria-label="Open navigation menu"
+                id="btn-topnav-logout"
+                onClick={handleLogout}
                 style={{
-                  padding: 8, borderRadius: 6,
-                  background: 'none', border: 'none',
-                  color: '#102A43', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', lineHeight: 0,
-                  transition: 'background 140ms',
+                  fontSize: 12, fontWeight: 500,
+                  padding: '6px 14px', borderRadius: 6,
+                  background: 'rgba(218,30,40,.08)',
+                  border: '1px solid rgba(218,30,40,.25)',
+                  color: '#DA1E28', cursor: 'pointer',
+                  transition: 'all 140ms', fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#F3F5F7')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(218,30,40,.15)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(218,30,40,.08)' }}
               >
-                {drawerOpen ? <Icons.X /> : <Icons.Menu />}
+                Sign Out
               </button>
-            )}
-
-            {/* Platform name */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 5, background: 'linear-gradient(135deg,#0F62FE,#0050E6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>P</div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#102A43', letterSpacing: '-.01em' }}>PRAGATI-AI</span>
-              <span style={{ color: '#D0D7DE', fontSize: 13 }}>/</span>
-              <span style={{ fontSize: 13, color: '#697077' }}>Predictive Infrastructure Intelligence</span>
             </div>
-          </div>
-
-          {/* Provenance badge */}
-          <ProvenanceBadge />
-        </header>
+          }
+        />
 
         {/* Page content */}
         <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
