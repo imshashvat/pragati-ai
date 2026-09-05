@@ -17,6 +17,13 @@ Run:
 import logging
 from contextlib import asynccontextmanager
 
+# Load .env before any os.getenv() calls (dev convenience; Railway injects real env vars)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed — env vars must be set externally
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

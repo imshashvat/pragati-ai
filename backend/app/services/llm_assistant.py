@@ -11,7 +11,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+# Do NOT read the key at module-import time — main.py calls load_dotenv() first,
+# but modules are imported before that. Read lazily inside explain_project().
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 PRIMARY_MODEL = "moonshotai/kimi-k3"
 FALLBACK_MODEL = "meta/llama-3.1-8b-instruct"
@@ -53,7 +54,9 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
     Call NVIDIA API to explain pre-computed risk data.
     Returns a graceful fallback string on any failure — never raises.
     """
-    if not NVIDIA_API_KEY:
+    # Read key lazily so load_dotenv() in main.py has already populated os.environ
+    api_key = os.getenv("NVIDIA_API_KEY", "").strip()
+    if not api_key:
         logger.warning("NVIDIA_API_KEY not set — returning fallback response.")
         return FALLBACK_RESPONSE
 
@@ -69,7 +72,7 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
     }
 
     headers = {
-        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
