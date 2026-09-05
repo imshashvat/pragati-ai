@@ -235,7 +235,7 @@ def get_recommendations(
     ministry: Optional[str] = Query(None),
     sort_by: str = Query("overall_risk", description="Field to sort by"),
     sort_dir: str = Query("asc", regex="^(asc|desc)$"),
-    user: User = Depends(require_role("senior_official", "admin")),
+    user: User = Depends(require_role("officer", "senior_official", "admin")),
     db: Session = Depends(get_db),
 ):
     """
