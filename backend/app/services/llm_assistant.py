@@ -88,6 +88,15 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
             timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)
             with httpx.Client(timeout=timeout) as client:
                 resp = client.post(NVIDIA_URL, json=payload, headers=headers)
+
+                # Handle 429 rate limit — wait and retry once
+                if resp.status_code == 429:
+                    import time
+                    wait = int(resp.headers.get("Retry-After", "6"))
+                    logger.warning("NVIDIA 429 rate limit (model=%s) — retrying in %ss", model, wait)
+                    time.sleep(wait)
+                    resp = client.post(NVIDIA_URL, json=payload, headers=headers)
+
                 resp.raise_for_status()
                 data = resp.json()
                 answer = data["choices"][0]["message"]["content"].strip()
