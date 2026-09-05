@@ -75,3 +75,27 @@ export async function getProjectDrivers(projectId: string): Promise<DriversRespo
   const res = await client.get<DriversResponse>(`/projects/${projectId}/drivers`)
   return res.data
 }
+
+export interface RecommendationItem {
+  project_id: string
+  name: string
+  sector: string | null
+  ministry: string | null
+  overall_risk: number
+  cost_risk: number
+  delay_risk: number
+  original_cost: number | null
+  model_mode: string
+  continuation_suitability: number
+  top_reason: string
+}
+
+export async function getRecommendations(params?: {
+  sector?: string
+  ministry?: string
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
+}): Promise<RecommendationItem[]> {
+  const res = await client.get<RecommendationItem[]>('/projects/recommendations', { params })
+  return res.data
+}

@@ -17,6 +17,7 @@ import ModelPage          from './pages/ModelPage'
 import DataProvenancePage from './pages/DataProvenancePage'
 import AdminPage          from './pages/AdminPage'
 import NotFoundPage       from './pages/NotFoundPage'
+import RecommendationsPage from './pages/RecommendationsPage'
 
 // Public info pages
 import AboutPage        from './pages/AboutPage'
@@ -72,9 +73,10 @@ function AppRoutes() {
         <Route path="/dashboard"           element={<DashboardPage />} />
         <Route path="/projects"            element={<ProjectsPage />} />
         <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-        <Route path="/alerts"             element={<AlertsPage />} />
-        <Route path="/model"              element={<ModelPage />} />
-        <Route path="/data-provenance"    element={<DataProvenancePage />} />
+        <Route path="/alerts"              element={<AlertsPage />} />
+        <Route path="/model"               element={<ModelPage />} />
+        <Route path="/recommendations"     element={<RecommendationsPage />} />
+        <Route path="/data-provenance"     element={<DataProvenancePage />} />
         <Route
           path="/admin"
           element={
