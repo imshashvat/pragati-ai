@@ -4,8 +4,9 @@ app/services/ingestion.py
 Accepts a PAIMANA CSV/XLSX upload, validates schema, writes snapshots,
 triggers feature engineering + prediction + SHAP, creates alerts.
 
-COLUMN_MAP mirrors the ML guide Step 1 Cell 2 — edit it to match real
-PAIMANA column names once you have the actual export.
+Column matching is FLEXIBLE — we try the canonical PAIMANA names first,
+then fall back to a list of common aliases, and finally try bare internal
+names (e.g. "project_id", "name").  This means any reasonable CSV works.
 """
 
 import io
@@ -30,28 +31,87 @@ from app.services.risk_scoring import compute_priority_score, should_create_aler
 
 logger = logging.getLogger(__name__)
 
-# Edit this map to match your actual PAIMANA export column names
-COLUMN_MAP = {
-    "project_id": "Project Code",
-    "project_name": "Project Name",
-    "sector": "Sector",
-    "ministry": "Line Ministry",
-    "original_cost": "Original Cost",
-    "revised_cost": "Revised Cost",
-    "expenditure": "Expenditure",
-    "original_date": "Original End Date",
-    "revised_date": "Revised End Date",
-    "report_month": "Reporting Month",
+# ── Column name resolution ────────────────────────────────────────────────────
+#
+# Each internal field maps to a list of accepted column-header variants
+# (case-insensitive, whitespace-collapsed).  The FIRST match found in the
+# uploaded file wins.  Add more aliases here as needed.
+#
+FIELD_ALIASES: dict[str, list[str]] = {
+    "project_id": [
+        "project code", "project_code", "projectcode",
+        "project id", "project_id", "projectid",
+        "id", "code",
+    ],
+    "project_name": [
+        "project name", "project_name", "projectname",
+        "name", "title",
+    ],
+    "sector": [
+        "sector", "sector name", "sector_name",
+    ],
+    "ministry": [
+        "line ministry", "line_ministry", "ministry",
+        "ministry name", "ministry_name", "department",
+    ],
+    "original_cost": [
+        "original cost", "original_cost", "originalcost",
+        "approved cost", "approved_cost", "sanctioned cost",
+        "project cost", "project_cost", "cost",
+    ],
+    "revised_cost": [
+        "revised cost", "revised_cost", "revisedcost",
+        "current cost", "current_cost", "latest cost",
+    ],
+    "expenditure": [
+        "expenditure", "actual expenditure", "actual_expenditure",
+        "exp", "spent", "amount spent",
+    ],
+    "original_date": [
+        "original end date", "original_end_date", "originalenddate",
+        "original completion date", "scheduled end date",
+        "original date", "original_date",
+    ],
+    "revised_date": [
+        "revised end date", "revised_end_date", "revisedenddate",
+        "revised completion date", "current end date",
+        "revised date", "revised_date",
+    ],
+    "report_month": [
+        "reporting month", "reporting_month", "reportingmonth",
+        "report month", "report_month", "reportmonth",
+        "month", "period",
+    ],
 }
 
-REQUIRED_COLUMNS = {"project_id", "project_name", "original_cost"}
+REQUIRED_FIELDS = {"project_id", "project_name", "original_cost"}
+
+
+def _normalise_header(h: str) -> str:
+    """Lower-case, collapse whitespace/underscores."""
+    return " ".join(str(h).lower().replace("_", " ").split())
+
+
+def _build_column_map(df_columns: list[str]) -> dict[str, str]:
+    """
+    Return {internal_field: actual_df_column} for every field we can resolve.
+    Unresolvable optional fields are simply absent from the returned dict.
+    """
+    normalised = {_normalise_header(c): c for c in df_columns}
+    result: dict[str, str] = {}
+    for field, aliases in FIELD_ALIASES.items():
+        for alias in aliases:
+            if alias in normalised:
+                result[field] = normalised[alias]
+                break
+    return result
 
 
 def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
     """
     Full ingestion pipeline:
     1. Parse CSV/XLSX
-    2. Validate schema
+    2. Auto-detect column mapping (flexible aliases)
     3. Upsert projects + snapshots
     4. For each project: engineer features → score → SHAP → alert if needed
     5. Write IngestionLog row
@@ -63,10 +123,15 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
     rows_processed = 0
     projects_updated = 0
 
+    # Create ingestion log record upfront so foreign key constraints on ProjectSnapshot are satisfied
+    _write_log(db, ingestion_id, "processing", 0, 0, [])
+
+    # ── 1. Parse ──────────────────────────────────────────────────────────────
     try:
         df = _parse_file(file_bytes, filename)
     except Exception as exc:
         _write_log(db, ingestion_id, "failed", 0, 0, [str(exc)])
+        db.commit()
         return {
             "ingestion_id": ingestion_id,
             "status": "failed",
@@ -75,19 +140,34 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
             "errors": [str(exc)],
         }
 
-    # Rename columns using COLUMN_MAP (reverse: display_name → internal_name)
-    reverse_map = {v: k for k, v in COLUMN_MAP.items()}
-    df = df.rename(columns=reverse_map)
+    # ── 2. Flexible column mapping ────────────────────────────────────────────
+    col_map = _build_column_map(list(df.columns))
+    logger.info("Ingestion column map: %s", col_map)
 
-    # Check required columns
-    missing_required = REQUIRED_COLUMNS - set(df.columns)
+    missing_required = REQUIRED_FIELDS - set(col_map.keys())
     if missing_required:
-        msg = f"Missing required columns after mapping: {missing_required}"
+        detected = list(df.columns[:15])  # show first 15 headers for debugging
+        msg = (
+            f"Could not find required columns: {sorted(missing_required)}. "
+            f"Detected headers: {detected}. "
+            f"Please use the template CSV or rename your columns — "
+            f"see the 'Download Template' button on the admin page."
+        )
         _write_log(db, ingestion_id, "failed", 0, 0, [msg])
-        return {"ingestion_id": ingestion_id, "status": "failed",
-                "rows_processed": 0, "projects_updated": 0, "errors": [msg]}
+        db.commit()
+        return {
+            "ingestion_id": ingestion_id,
+            "status": "failed",
+            "rows_processed": 0,
+            "projects_updated": 0,
+            "errors": [msg],
+        }
 
-    # Normalise types
+    # Rename to internal names so the rest of the pipeline works uniformly
+    rename = {v: k for k, v in col_map.items()}
+    df = df.rename(columns=rename)
+
+    # ── 3. Normalise types ────────────────────────────────────────────────────
     for col in ["original_cost", "revised_cost", "expenditure"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -96,8 +176,13 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
     if "report_month" not in df.columns:
         df["report_month"] = datetime.utcnow().strftime("%Y-%m")
     else:
-        df["report_month"] = pd.to_datetime(df["report_month"], errors="coerce").dt.strftime("%Y-%m")
-        df["report_month"] = df["report_month"].fillna(datetime.utcnow().strftime("%Y-%m"))
+        df["report_month"] = (
+            pd.to_datetime(df["report_month"], errors="coerce")
+            .dt.strftime("%Y-%m")
+        )
+        df["report_month"] = df["report_month"].fillna(
+            datetime.utcnow().strftime("%Y-%m")
+        )
 
     # Drop rows with no project_id
     df = df.dropna(subset=["project_id"])
@@ -112,6 +197,7 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
 
     rows_processed = len(df)
 
+    # ── 4. Upsert rows ────────────────────────────────────────────────────────
     for _, row in df.iterrows():
         try:
             _upsert_project_and_snapshot(db, row, ingestion_id)
@@ -122,7 +208,7 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
 
     db.flush()
 
-    # Now score every project that has a snapshot from this ingestion
+    # ── 5. Score every project touched in this ingestion ──────────────────────
     _score_all_ingested(db, ingestion_id)
 
     status = "success" if not errors else ("partial" if projects_updated > 0 else "failed")
@@ -142,9 +228,15 @@ def run_ingestion(db: Session, file_bytes: bytes, filename: str) -> dict:
 
 def _parse_file(file_bytes: bytes, filename: str) -> pd.DataFrame:
     buf = io.BytesIO(file_bytes)
-    if filename.lower().endswith(".xlsx") or filename.lower().endswith(".xls"):
+    fn = filename.lower()
+    if fn.endswith(".xlsx") or fn.endswith(".xls"):
         return pd.read_excel(buf)
-    return pd.read_csv(buf)
+    # Try utf-8 first, fall back to latin-1 (common in govt exports)
+    try:
+        return pd.read_csv(buf)
+    except UnicodeDecodeError:
+        buf.seek(0)
+        return pd.read_csv(buf, encoding="latin-1")
 
 
 def _upsert_project_and_snapshot(db: Session, row: Any, ingestion_id: str) -> None:
@@ -162,7 +254,6 @@ def _upsert_project_and_snapshot(db: Session, row: Any, ingestion_id: str) -> No
         )
         db.add(project)
     else:
-        # Update mutable fields if present
         if "project_name" in row and pd.notna(row["project_name"]):
             project.name = str(row["project_name"])
         if "sector" in row:
@@ -170,7 +261,7 @@ def _upsert_project_and_snapshot(db: Session, row: Any, ingestion_id: str) -> No
         if "ministry" in row:
             project.ministry = _safe_str(row.get("ministry"))
 
-    # Upsert snapshot (skip if month already exists)
+    # Upsert snapshot (skip if month already exists — idempotent)
     month = str(row.get("report_month", ""))
     existing_snap = (
         db.query(ProjectSnapshot)
@@ -178,7 +269,7 @@ def _upsert_project_and_snapshot(db: Session, row: Any, ingestion_id: str) -> No
         .first()
     )
     if existing_snap:
-        return  # idempotent: already have this month's snapshot
+        return
 
     dq_flag = sum([
         1 for col in ["revised_cost", "expenditure", "revised_date"]
@@ -202,9 +293,8 @@ def _upsert_project_and_snapshot(db: Session, row: Any, ingestion_id: str) -> No
 def _score_all_ingested(db: Session, ingestion_id: str) -> None:
     """
     After snapshot writes, score every project updated in this ingestion.
-    Computes SHAP immediately (Section 12 / Q4 confirmed).
+    Computes SHAP immediately.
     """
-    # Collect all project_ids touched in this ingestion
     touched_snaps = (
         db.query(ProjectSnapshot.project_id)
         .filter(ProjectSnapshot.ingestion_id == ingestion_id)
@@ -225,7 +315,6 @@ def _score_one_project(db: Session, pid: str, ingestion_id: str) -> None:
     if not project:
         return
 
-    # Get full snapshot history for this project, sorted oldest→newest
     snaps = (
         db.query(ProjectSnapshot)
         .filter(ProjectSnapshot.project_id == pid)
@@ -266,7 +355,6 @@ def _score_one_project(db: Session, pid: str, ingestion_id: str) -> None:
     db.add(pred)
     db.flush()
 
-    # Compute and store SHAP drivers
     drivers = get_shap_drivers(feature_dict)
     for d in drivers:
         db.add(RiskDriver(
@@ -278,7 +366,6 @@ def _score_one_project(db: Session, pid: str, ingestion_id: str) -> None:
             rank=d["rank"],
         ))
 
-    # Create alert if risk ≥ threshold
     if should_create_alert(result["overall_risk"]):
         get_or_create_alert(db, pid, result["overall_risk"], prediction_id=pred.id)
 
@@ -287,14 +374,21 @@ def _write_log(
     db: Session, ingestion_id: str, status: str,
     rows: int, projects: int, errors: list
 ) -> None:
-    log = IngestionLog(
-        ingestion_id=ingestion_id,
-        status=status,
-        rows_processed=rows,
-        projects_updated=projects,
-        error_detail=json.dumps(errors) if errors else None,
-    )
-    db.add(log)
+    log = db.get(IngestionLog, ingestion_id)
+    if not log:
+        log = IngestionLog(
+            ingestion_id=ingestion_id,
+            status=status,
+            rows_processed=rows,
+            projects_updated=projects,
+            error_detail=json.dumps(errors) if errors else None,
+        )
+        db.add(log)
+    else:
+        log.status = status
+        log.rows_processed = rows
+        log.projects_updated = projects
+        log.error_detail = json.dumps(errors) if errors else None
     db.flush()
 
 

@@ -5,10 +5,12 @@ POST /admin/ingest        — upload and trigger monthly ingestion (Admin only)
 GET  /admin/ingestion-log — list ingestion runs (Admin only)
 """
 
+import io
 import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -32,6 +34,32 @@ async def trigger_ingestion(
     file_bytes = await file.read()
     result = run_ingestion(db, file_bytes, file.filename or "upload.csv")
     return result
+
+
+@router.get("/template")
+def download_template(
+    user: User = Depends(require_role("admin")),
+):
+    """
+    Download a blank template CSV that the ingestion pipeline will always accept.
+    Column headers here exactly match the primary aliases in FIELD_ALIASES.
+    """
+    header = (
+        "Project Code,Project Name,Sector,Line Ministry,"
+        "Original Cost,Revised Cost,Expenditure,"
+        "Original End Date,Revised End Date,Reporting Month\n"
+    )
+    example = (
+        "PROJ-001,Example Highway Project,Transport,Ministry of Road Transport,"
+        "5000.00,5500.00,2200.00,"
+        "2024-03-31,2025-06-30,2024-09\n"
+    )
+    content = header + example
+    return StreamingResponse(
+        io.BytesIO(content.encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="pragati_template.csv"'},
+    )
 
 
 @router.get("/ingestion-log")

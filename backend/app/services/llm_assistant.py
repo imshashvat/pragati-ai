@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 # Do NOT read the key at module-import time — main.py calls load_dotenv() first,
 # but modules are imported before that. Read lazily inside explain_project().
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-PRIMARY_MODEL = "meta/llama-3.3-70b-instruct"   # fast (~2-5s), high quality
-FALLBACK_MODEL = "meta/llama-3.1-8b-instruct"   # even faster fallback
+PRIMARY_MODEL = "moonshotai/kimi-k3"   # reasoning disabled via reasoning_effort=none → fast (~3-5s)
+FALLBACK_MODEL = "moonshotai/kimi-k3"  # same model, retry on transient errors
 
 SYSTEM_PROMPT = """You are a read-only risk-data explainer for PRAGATI-AI, 
 the Government of India's infrastructure project monitoring platform.
@@ -69,6 +69,7 @@ def explain_project(project_data: dict, question: Optional[str] = None) -> str:
         "max_tokens": 512,
         "temperature": 0.3,
         "stream": False,
+        "reasoning_effort": "none",   # disable CoT → fast responses from Kimi K3
     }
 
     headers = {
